@@ -122,6 +122,18 @@ function getValue(
     return current;
   }
 
+  // Handle EndNote XML style wrapper: {style: {"#text": "value"}}
+  if (isLooseRecord(current)) {
+    const style = current.style;
+    if (isLooseRecord(style) && typeof style["#text"] === "string") {
+      return style["#text"] as string;
+    }
+    // Direct #text field
+    if (typeof current["#text"] === "string") {
+      return current["#text"] as string;
+    }
+  }
+
   if (deep && isLooseRecord(current)) {
     return Object.values(current)
       .map((value) => (typeof value === "string" ? value : ""))
@@ -140,20 +152,49 @@ function buildAuthors(record: LooseRecord): string | undefined {
     | undefined;
   if (!authors) return undefined;
 
+  // Helper to extract author name from EndNote XML structure
+  const extractAuthorName = (author: unknown): string => {
+    if (typeof author === "string") return author;
+    if (!isLooseRecord(author)) return "";
+    
+    // EndNote XML: author.style.#text
+    const style = author.style;
+    if (isLooseRecord(style) && typeof style["#text"] === "string") {
+      return style["#text"] as string;
+    }
+    
+    // Fallback to direct style field
+    if (typeof author.style === "string") {
+      return author.style;
+    }
+    
+    return "";
+  };
+
   if (Array.isArray(authors)) {
     return authors
-      .map((author) =>
-        typeof author === "string"
-          ? author
-          : (author.style as string | undefined) ?? ""
-      )
+      .map(extractAuthorName)
       .filter(Boolean)
       .map((author) => author.trim())
       .join(" and ");
   }
 
   if (typeof authors === "string") return authors;
-  return typeof authors.style === "string" ? authors.style : undefined;
+  
+  // Single author object
+  if (isLooseRecord(authors)) {
+    const authorList = authors.author;
+    if (Array.isArray(authorList)) {
+      return authorList
+        .map(extractAuthorName)
+        .filter(Boolean)
+        .map((author) => author.trim())
+        .join(" and ");
+    }
+    return extractAuthorName(authorList);
+  }
+  
+  return undefined;
 }
 
 function normalizePages(pages?: string): string | undefined {
@@ -168,14 +209,27 @@ function extractKeywords(record: LooseRecord): string | undefined {
     | LooseRecord[]
     | undefined;
   if (!keywords) return undefined;
+  
+  const extractText = (kw: unknown): string => {
+    if (typeof kw === "string") return kw;
+    if (!isLooseRecord(kw)) return "";
+    // EndNote XML: keyword.style.#text
+    const style = kw.style;
+    if (isLooseRecord(style) && typeof style["#text"] === "string") {
+      return style["#text"] as string;
+    }
+    if (typeof kw.style === "string") return kw.style;
+    return "";
+  };
+  
   if (Array.isArray(keywords)) {
     return keywords
-      .map((kw) => (typeof kw === "string" ? kw : (kw.style as string)))
+      .map(extractText)
       .filter(Boolean)
       .join(", ");
   }
   if (typeof keywords === "string") return keywords;
-  return typeof keywords.style === "string" ? keywords.style : undefined;
+  return extractText(keywords);
 }
 
 function deriveType(record: LooseRecord): string {
