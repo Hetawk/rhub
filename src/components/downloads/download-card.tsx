@@ -144,13 +144,17 @@ export function DownloadCard({ file }: DownloadCardProps) {
           {/* Password Input */}
           {isProtected && showPwdInput && (
             <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enter Password to Download
+              </label>
               <Input
                 type="password"
                 placeholder="Enter password"
                 value={pwd}
                 onChange={(e) => setPwd(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleDownload()}
-                className="h-9"
+                className="h-10"
+                autoFocus
               />
               {pwdErr && <p className="text-xs text-red-500">{pwdErr}</p>}
             </div>
@@ -160,12 +164,12 @@ export function DownloadCard({ file }: DownloadCardProps) {
           <Button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="w-full bg-gold hover:bg-gold/90 text-white"
+            className="w-full bg-gold hover:bg-gold/90 text-white h-11 font-semibold"
           >
             {isProtected && !showPwdInput ? (
               <>
                 <Lock className="w-4 h-4 mr-2" />
-                Unlock & Download
+                Click to Enter Password
               </>
             ) : (
               <>
