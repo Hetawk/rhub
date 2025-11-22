@@ -3,19 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { getLiveTools } from "@/lib/tools-config";
 
-interface Tool {
-  slug: string;
-  title: string;
-  tagline: string;
-  category: string;
-}
-
-interface ToolsDropdownProps {
-  tools: Tool[];
-}
-
-export function ToolsDropdown({ tools }: ToolsDropdownProps) {
+export function ToolsDropdown() {
+  const tools = getLiveTools();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -71,7 +62,7 @@ export function ToolsDropdown({ tools }: ToolsDropdownProps) {
               tools.map((tool) => (
                 <Link
                   key={tool.slug}
-                  href={`/tools/${tool.slug}`}
+                  href={tool.path}
                   className="block rounded-md px-3 py-2 transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   <div className="text-sm font-medium text-foreground">

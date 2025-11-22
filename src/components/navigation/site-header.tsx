@@ -4,7 +4,6 @@ import { ThemeToggle } from "./theme-toggle";
 import { ToolsDropdown } from "./tools-dropdown";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
-import { prisma } from "@/lib/prisma";
 
 const navLinks = [
   { label: "Docs", href: "/docs" },
@@ -13,39 +12,14 @@ const navLinks = [
   { label: "About", href: "https://ekddigital.com/about", external: true },
 ];
 
-async function getTools() {
-  try {
-    const tools = await prisma.resource.findMany({
-      where: {
-        status: "LIVE",
-      },
-      select: {
-        slug: true,
-        title: true,
-        tagline: true,
-        category: true,
-      },
-      orderBy: {
-        title: "asc",
-      },
-    });
-    return tools;
-  } catch (error) {
-    console.error("Error fetching tools:", error);
-    return [];
-  }
-}
-
-export async function SiteHeader() {
-  const tools = await getTools();
-
+export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-lg supports-backdrop-filter:bg-background/75">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Logo />
           <nav className="hidden gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <ToolsDropdown tools={tools} />
+            <ToolsDropdown />
             {navLinks.map((link) => (
               <Link
                 key={link.href}

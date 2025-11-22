@@ -1,38 +1,18 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ResourceWithActions } from "@/lib/resources-data";
+import type { ToolConfig } from "@/lib/tools-config";
 import { getCategoryAccent } from "@/lib/utils";
-import {
-  BadgeCheck,
-  Code2,
-  FileText,
-  Shield,
-  Sparkles,
-  Wand2,
-  Download,
-} from "lucide-react";
 import Link from "next/link";
-import type { ResourceCategory } from "@prisma/client";
 
 const statusCopy: Record<string, string> = {
-  LIVE: "Live",
-  DRAFT: "Coming soon",
-  ARCHIVED: "Archived",
+  live: "Live",
+  beta: "Beta",
+  "coming-soon": "Coming soon",
 };
 
-const categoryIconMap: Record<ResourceCategory, React.ElementType> = {
-  CONVERTER: Sparkles,
-  DATASET: Shield,
-  PLAYGROUND: Code2,
-  API: Wand2,
-  GUIDE: FileText,
-  UTILITY: BadgeCheck,
-  DOWNLOAD: Download,
-};
-
-export function ResourceCard({ resource }: { resource: ResourceWithActions }) {
-  const Icon = categoryIconMap[resource.category];
+export function ResourceCard({ resource }: { resource: ToolConfig }) {
+  const Icon = resource.icon;
   const accent = getCategoryAccent(resource.category);
 
   return (
@@ -59,16 +39,12 @@ export function ResourceCard({ resource }: { resource: ResourceWithActions }) {
           {resource.summary}
         </p>
       </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        {resource.actions.map((action) => (
-          <Button
-            key={action.id}
-            asChild
-            variant={action.type === "DOCUMENTATION" ? "outline" : "default"}
-          >
-            <Link href={action.url ?? `#${resource.slug}`}>{action.label}</Link>
-          </Button>
-        ))}
+      <div className="mt-6">
+        <Button asChild variant="default">
+          <Link href={resource.path}>
+            {resource.status === "live" ? "Launch Tool" : "Learn More"}
+          </Link>
+        </Button>
       </div>
     </Card>
   );

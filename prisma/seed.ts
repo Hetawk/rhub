@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createHash } from "crypto";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -135,6 +136,49 @@ async function main() {
     },
   });
 
+  // Seed Image Converter
+  const imgConverter = await prisma.resource.create({
+    data: {
+      slug: "img",
+      title: "Image Converter",
+      tagline: "Convert images between formats instantly",
+      summary:
+        "Transform SVG, PNG, JPG, and WebP images with advanced options. Resize, adjust quality, set backgrounds, and optimize for web. Fast server-side processing.",
+      category: "CONVERTER",
+      status: "LIVE",
+      featured: true,
+      metadata: {
+        supportedFormats: ["svg", "png", "jpg", "webp"],
+        features: [
+          "SVG to PNG/JPG conversion",
+          "PNG/JPG/WebP format switching",
+          "Custom dimensions & sizing",
+          "Quality control",
+          "Background color support",
+          "Fast processing",
+        ],
+      },
+      actions: {
+        create: [
+          {
+            label: "Convert Now",
+            description: "Start converting images",
+            type: "INTERNAL",
+            url: "/tools/img",
+            order: 1,
+          },
+          {
+            label: "View Docs",
+            description: "Learn about image conversion",
+            type: "DOCUMENTATION",
+            url: "/docs/img",
+            order: 2,
+          },
+        ],
+      },
+    },
+  });
+
   // Seed API Playground
   const apiPlayground = await prisma.resource.create({
     data: {
@@ -170,6 +214,7 @@ async function main() {
   console.log("✅ Seeded resources:", {
     refConverter: refConverter.slug,
     urlShortener: urlShortener.slug,
+    imgConverter: imgConverter.slug,
     latexConverter: latexConverter.slug,
     apiPlayground: apiPlayground.slug,
   });
@@ -252,6 +297,21 @@ async function main() {
 
   console.log("✅ Seeded downloads resource:", downloadsResource.slug);
   console.log("✅ Created downloadable file:", bankInfoFile.fileName);
+
+  // Create admin user
+  const hashedPassword = await bcrypt.hash("admin123", 10);
+  const adminUser = await prisma.user.create({
+    data: {
+      email: "admin@ekddigital.com",
+      password: hashedPassword,
+      name: "Admin User",
+      role: "superadmin",
+      isActive: true,
+    },
+  });
+
+  console.log("✅ Created admin user:", adminUser.email);
+  console.log("   Password: admin123");
   console.log("🎉 Database seeding complete!");
 }
 

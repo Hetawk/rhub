@@ -1,8 +1,8 @@
 import { ResourceCard } from "@/components/resources/resource-card";
-import { getFeaturedResources } from "@/lib/resources-data";
+import { getFeaturedTools } from "@/lib/tools-config";
 
-export async function FeaturedResourcesSection() {
-  const resources = await getFeaturedResources();
+export function FeaturedResourcesSection() {
+  const resources = getFeaturedTools();
 
   return (
     <section id="resources" className="space-y-8">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { runConversion } from "@/lib/conversion/engine";
-import type { ConversionOptions } from "@/lib/conversion/types";
+import { runConversion } from "@/lib/ref/engine";
+import type { ConversionOptions } from "@/lib/ref/types";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {

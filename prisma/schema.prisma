@@ -131,3 +131,31 @@ model DownloadableFile {
     @@index([category])
     @@index([publicUntil])
 }
+
+model User {
+    id        String    @id @default(cuid())
+    email     String    @unique
+    password  String // bcrypt hashed
+    name      String
+    role      String    @default("admin") // admin, superadmin
+    isActive  Boolean   @default(true)
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    sessions  Session[]
+
+    @@index([email])
+}
+
+model Session {
+    id        String   @id @default(cuid())
+    userId    String
+    token     String   @unique
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([token])
+    @@index([expiresAt])
+}

@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { runConversion } from "../src/lib/conversion/engine";
+import { runConversion } from "../src/lib/ref/engine";
 import { prisma } from "../src/lib/db";
 
 async function testConversion() {

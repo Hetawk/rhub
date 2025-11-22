@@ -33,19 +33,15 @@ export function formatNumber(value: number): string {
 }
 
 export function getCategoryAccent(category?: string): string {
-  const normalized = category?.toUpperCase();
+  const normalized = category?.toLowerCase();
   switch (normalized) {
-    case "CONVERTER":
+    case "converter":
       return brandPalette.gold;
-    case "DATASET":
+    case "download":
       return brandPalette.navy;
-    case "GUIDE":
-      return brandPalette.maroon;
-    case "UTILITY":
+    case "utility":
       return brandPalette.lightGold;
-    case "API":
-      return "#3C5C97";
-    case "PLAYGROUND":
+    case "media":
       return "#F28F3B";
     default:
       return brandPalette.primary;
