@@ -107,47 +107,76 @@ export async function downloadVideo(
  * YouTube download implementation
  */
 
-// YouTube agent configuration to bypass bot detection
-const ytdlOptions = {
-  requestOptions: {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+// Enhanced YouTube configuration with multiple bypass strategies
+function getYTDLOptions() {
+  return {
+    requestOptions: {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-Ch-Ua":
+          '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Sec-Fetch-Dest": "document",
+        "Upgrade-Insecure-Requests": "1",
+        "Accept-Encoding": "gzip, deflate, br",
+        Connection: "keep-alive",
+        DNT: "1",
+        // Add cookie to appear as logged-in user (optional, helps with bot detection)
+        Cookie: process.env.YOUTUBE_COOKIES || "",
+      },
     },
-  },
-};
+    // Use iOS client which has fewer bot detection measures
+    clients: ["ios", "web"],
+    poToken: process.env.YOUTUBE_PO_TOKEN,
+    visitorData: process.env.YOUTUBE_VISITOR_DATA,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+}
 
 async function getYouTubeInfo(url: string): Promise<VideoInfo> {
-  const info = await ytdl.getInfo(url, ytdlOptions);
+  try {
+    const info = await ytdl.getInfo(url, getYTDLOptions());
 
-  // Get available qualities
-  const formats = ytdl.filterFormats(info.formats, "videoandaudio");
-  const availableQualities = [
-    ...new Set(formats.map((f) => f.qualityLabel).filter(Boolean)),
-  ] as string[];
+    // Get available qualities
+    const formats = ytdl.filterFormats(info.formats, "videoandaudio");
+    const availableQualities = [
+      ...new Set(formats.map((f) => f.qualityLabel).filter(Boolean)),
+    ] as string[];
 
-  return {
-    title: info.videoDetails.title,
-    author: info.videoDetails.author.name,
-    duration: parseInt(info.videoDetails.lengthSeconds),
-    thumbnail:
-      info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1]
-        ?.url || "",
-    description: info.videoDetails.description || "",
-    views: parseInt(info.videoDetails.viewCount),
-    uploadDate: info.videoDetails.uploadDate || "",
-    availableQualities,
-  };
+    return {
+      title: info.videoDetails.title,
+      author: info.videoDetails.author.name,
+      duration: parseInt(info.videoDetails.lengthSeconds),
+      thumbnail:
+        info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1]
+          ?.url || "",
+      description: info.videoDetails.description || "",
+      views: parseInt(info.videoDetails.viewCount),
+      uploadDate: info.videoDetails.uploadDate || "",
+      availableQualities,
+    };
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch YouTube info: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
 }
 
 async function downloadYouTube(
   options: DownloadOptions
 ): Promise<DownloadResult> {
   const start = Date.now();
-  const info = await ytdl.getInfo(options.url, ytdlOptions);
+  const info = await ytdl.getInfo(options.url, getYTDLOptions());
 
   let stream;
   let fileName = sanitizeFileName(info.videoDetails.title);
@@ -155,7 +184,7 @@ async function downloadYouTube(
   if (options.format.type === "audio") {
     // Download audio only
     stream = ytdl(options.url, {
-      ...ytdlOptions,
+      ...getYTDLOptions(),
       quality: "highestaudio",
       filter: "audioonly",
     });
@@ -167,7 +196,7 @@ async function downloadYouTube(
     const qualityLabel = videoQuality?.label || "highest";
 
     stream = ytdl(options.url, {
-      ...ytdlOptions,
+      ...getYTDLOptions(),
       quality: qualityLabel.includes("1080p")
         ? "highestvideo"
         : qualityLabel.includes("720p")

@@ -43,7 +43,7 @@ export function SiteFooter() {
             <Link href="/" className="inline-flex items-center space-x-2 mb-4">
               <Image
                 src="/rhub_logo.png"
-                alt="rHub Logo"
+                alt="Resource Hub Logo"
                 width={40}
                 height={40}
                 className="h-10 w-10"
@@ -109,8 +109,14 @@ export function SiteFooter() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-linear-to-br from-ekd-maroon to-ekd-navy group-hover:shadow-lg transition-shadow">
-                <span className="text-sm font-bold text-white">E</span>
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg overflow-hidden group-hover:shadow-lg transition-shadow">
+                <Image
+                  src="/logo.png"
+                  alt="EKD Digital"
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
                 Powered by{" "}

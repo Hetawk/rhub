@@ -176,7 +176,7 @@ export function VideoDownloader() {
           Video Downloader
         </h1>
         <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-          Download videos from YouTube, Instagram, TikTok, Twitter, and more
+          Download videos from YouTube with multiple quality options
         </p>
       </div>
 
@@ -184,19 +184,27 @@ export function VideoDownloader() {
       <Card className="p-4 bg-gold/5 border-gold/20">
         <div className="flex flex-wrap gap-3 items-center justify-center">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Supported:
+            Available:
           </span>
-          {["YouTube", "Instagram", "TikTok", "Twitter/X", "Vimeo"].map(
-            (name) => (
-              <Badge
-                key={name}
-                variant="secondary"
-                className="bg-gold/10 text-gold border-gold/30"
-              >
-                {name}
-              </Badge>
-            )
-          )}
+          <Badge
+            variant="secondary"
+            className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
+          >
+            ✓ YouTube
+          </Badge>
+          <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Coming Soon:
+          </span>
+          {["Instagram", "TikTok", "Twitter/X", "Vimeo"].map((name) => (
+            <Badge
+              key={name}
+              variant="secondary"
+              className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-700"
+            >
+              {name}
+            </Badge>
+          ))}
         </div>
       </Card>
 

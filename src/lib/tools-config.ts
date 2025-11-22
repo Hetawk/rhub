@@ -138,8 +138,8 @@ export const TOOLS: ToolConfig[] = [
       "Download Instagram Reels, IGTV videos, and posts in MP4 format without watermarks. Supports multiple quality options.",
     category: "media",
     group: "vid",
-    status: "live",
-    featured: true,
+    status: "coming-soon",
+    featured: false,
     icon: Video,
     path: "/tools/vid/ig",
     metadata: {

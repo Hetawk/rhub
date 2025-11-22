@@ -42,13 +42,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert image
+    // Convert image with high quality settings
     const result = await convertImage(buffer, detectedFormat as ImageFormat, {
       format: toFormat as ImageFormat,
       width: width ? parseInt(width) : undefined,
       height: height ? parseInt(height) : undefined,
-      quality: quality ? parseInt(quality) : undefined,
+      quality: quality ? parseInt(quality) : 95,
       backgroundColor: bgColor || undefined,
+      lossless: false,
+      effort: 6,
     });
 
     // Log conversion to database

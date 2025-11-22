@@ -10,7 +10,7 @@ export function Logo() {
     >
       <Image
         src="/rhub_logo.png"
-        alt="rHub Logo"
+        alt="Resource Hub Logo"
         width={36}
         height={36}
         className="h-9 w-9"

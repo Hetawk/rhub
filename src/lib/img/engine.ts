@@ -53,8 +53,9 @@ export async function convertImage(
     switch (options.format) {
       case "png":
         pipeline = pipeline.png({
-          quality: options.quality || 90,
+          quality: options.quality || 100,
           compressionLevel: 9,
+          palette: options.lossless === true,
         });
         if (fromFormat === "svg" && options.backgroundColor) {
           pipeline = pipeline.flatten({
@@ -66,8 +67,10 @@ export async function convertImage(
       case "jpg":
       case "jpeg":
         pipeline = pipeline.jpeg({
-          quality: options.quality || 85,
+          quality: options.quality || 95,
           mozjpeg: true,
+          progressive: true,
+          optimiseScans: true,
         });
         pipeline = pipeline.flatten({
           background: options.backgroundColor || "#ffffff",
@@ -76,9 +79,10 @@ export async function convertImage(
 
       case "webp":
         pipeline = pipeline.webp({
-          quality: options.quality || 85,
+          quality: options.quality || 95,
           lossless: options.lossless || false,
-          effort: options.effort || 4,
+          effort: options.effort || 6,
+          smartSubsample: true,
         });
         break;
 
@@ -105,7 +109,8 @@ export async function convertImage(
 
       case "tiff":
         pipeline = pipeline.tiff({
-          quality: options.quality || 85,
+          quality: options.quality || 95,
+          compression: "lzw",
         });
         break;
 
