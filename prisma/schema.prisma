@@ -37,6 +37,21 @@ enum ConversionStatus {
     FAILED
 }
 
+enum JournalType {
+    ELSEVIER
+    SPRINGER_NATURE
+    ACM
+    IEEE
+    GENERIC
+}
+
+enum LaTeXQuality {
+    BASIC
+    STANDARD
+    PROFESSIONAL
+    PUBLICATION
+}
+
 model Resource {
     id        String           @id @default(cuid())
     slug      String           @unique
@@ -158,4 +173,74 @@ model Session {
     @@index([userId])
     @@index([token])
     @@index([expiresAt])
+}
+
+// LaTeX to Word Conversion Models
+model Journal {
+    id             String            @id @default(cuid())
+    name           String // "Elsevier Medical Image Analysis", "IEEE TMI", etc.
+    type           JournalType
+    documentClass  String // "elsarticle", "sn-jnl", "acmart", "IEEEtran"
+    classOptions   Json? // ["preprint", "12pt"], ["pdflatex", "sn-mathphys-num"]
+    bibStyle       String? // "elsarticle-num", "ACM-Reference-Format"
+    requiresLogo   Boolean           @default(false)
+    logoPath       String?
+    yamlTemplate   String? // Path to Pandoc YAML template
+    detectionRegex String? // Regex pattern for auto-detection
+    description    String?           @db.Text
+    publisher      String? // "Elsevier", "Springer Nature", "ACM", "IEEE"
+    isActive       Boolean           @default(true)
+    createdAt      DateTime          @default(now())
+    updatedAt      DateTime          @updatedAt
+    conversions    LaTeXConversion[]
+
+    @@index([type])
+    @@index([documentClass])
+    @@index([isActive])
+}
+
+model LaTeXConversion {
+    id              String           @id @default(cuid())
+    journalId       String?
+    detectedJournal String? // Auto-detected journal name
+    manualOverride  Boolean          @default(false) // User manually selected journal
+    status          ConversionStatus @default(PENDING)
+    quality         LaTeXQuality     @default(STANDARD)
+    inputFileName   String
+    inputFileSize   Int?
+    outputFileName  String?
+    outputFileSize  Int?
+    documentClass   String? // Detected from .tex file
+    bibEntryCount   Int?
+    figureCount     Int?
+    tableCount      Int?
+    errorMessage    String?          @db.Text
+    warningMessage  String?          @db.Text
+    durationMs      Int?
+    metadata        Json? // Font info, packages used, compilation warnings
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+
+    journal Journal? @relation(fields: [journalId], references: [id], onDelete: SetNull)
+
+    @@index([journalId])
+    @@index([status])
+    @@index([createdAt])
+}
+
+model ConversionTemplate {
+    id           String      @id @default(cuid())
+    name         String // "Elsevier Publication", "IEEE Journal"
+    journalType  JournalType
+    yamlContent  String      @db.Text // Full YAML template content
+    description  String?     @db.Text
+    fontSettings Json? // {"main": "Times New Roman", "size": 12}
+    spacing      Float?      @default(1.5)
+    margins      Json? // {"top": "1in", "bottom": "1in"}
+    isDefault    Boolean     @default(false)
+    createdAt    DateTime    @default(now())
+    updatedAt    DateTime    @updatedAt
+
+    @@index([journalType])
+    @@index([isDefault])
 }

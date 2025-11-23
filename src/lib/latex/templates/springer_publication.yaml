@@ -1,0 +1,47 @@
+---
+# Springer Nature Publication Template
+# For journals using sn-jnl document class
+# Optimized for Springer and Nature submissions
+
+# Document settings
+standalone: true
+toc: false
+number-sections: true
+
+# Font configuration
+mainfont: "Times New Roman"
+sansfont: "Arial"
+monofont: "Courier New"
+fontsize: 12pt
+linestretch: 1.5
+
+# Page margins (Springer standard)
+geometry:
+  - top=2.5cm
+  - bottom=2.5cm
+  - left=2.5cm
+  - right=2.5cm
+
+# Bibliography style (Springer numeric)
+bibliography-style: sn-basic
+citeproc: true
+link-citations: true
+
+# Table of contents
+toc-depth: 3
+
+# Code highlighting
+highlight-style: tango
+
+# Metadata preservation
+preserve-tabs: false
+preserve-yaml: true
+
+# Figure and table settings
+reference-section-title: "References"
+linkcolor: blue
+citecolor: blue
+urlcolor: blue
+
+# Word-specific settings
+reference-doc: null

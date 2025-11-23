@@ -1,0 +1,47 @@
+---
+# Generic Publication Template
+# For unrecognized or custom document classes
+# Provides best-practice defaults for academic manuscripts
+
+# Document settings
+standalone: true
+toc: false
+number-sections: true
+
+# Font configuration
+mainfont: "Times New Roman"
+sansfont: "Arial"
+monofont: "Courier New"
+fontsize: 12pt
+linestretch: 1.5
+
+# Page margins (standard academic)
+geometry:
+  - top=2.5cm
+  - bottom=2.5cm
+  - left=2.5cm
+  - right=2.5cm
+
+# Bibliography style (IEEE numeric - widely compatible)
+bibliography-style: ieee
+citeproc: true
+link-citations: true
+
+# Table of contents
+toc-depth: 3
+
+# Code highlighting
+highlight-style: tango
+
+# Metadata preservation
+preserve-tabs: false
+preserve-yaml: true
+
+# Figure and table settings
+reference-section-title: "References"
+linkcolor: blue
+citecolor: blue
+urlcolor: blue
+
+# Word-specific settings
+reference-doc: null

@@ -1,0 +1,47 @@
+---
+# IEEE Publication Template
+# For journals using IEEEtran document class
+# Optimized for IEEE Transactions and TMI submissions
+
+# Document settings
+standalone: true
+toc: false
+number-sections: true
+
+# Font configuration
+mainfont: "Times New Roman"
+sansfont: "Arial"
+monofont: "Courier New"
+fontsize: 10pt
+linestretch: 1.0
+
+# Page margins (IEEE standard - two-column format adapted for Word)
+geometry:
+  - top=1.9cm
+  - bottom=2.54cm
+  - left=1.9cm
+  - right=1.9cm
+
+# Bibliography style (IEEE numeric)
+bibliography-style: ieee
+citeproc: true
+link-citations: true
+
+# Table of contents
+toc-depth: 3
+
+# Code highlighting
+highlight-style: tango
+
+# Metadata preservation
+preserve-tabs: false
+preserve-yaml: true
+
+# Figure and table settings
+reference-section-title: "References"
+linkcolor: blue
+citecolor: blue
+urlcolor: blue
+
+# Word-specific settings
+reference-doc: null

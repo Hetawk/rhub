@@ -3,7 +3,6 @@ import {
   Wrench,
   BookOpen,
   Code2,
-  FileText,
   Layers,
   Sparkles,
   Link2,
@@ -61,10 +60,16 @@ export const mainNavItems: NavItem[] = [
 // Featured resources for quick access
 export const featuredResources: NavItem[] = [
   {
-    name: "Reference Converter",
-    href: "/tools/ref",
-    icon: FileText,
-    description: "Convert citations to BibTeX",
+    name: "Converters",
+    href: "/#converters",
+    icon: Wrench,
+    description: "Reference, LaTeX, Word & more",
+  },
+  {
+    name: "Image Tools",
+    href: "/tools/img",
+    icon: Sparkles,
+    description: "Convert between 8+ formats",
   },
   {
     name: "URL Shortener",
@@ -73,18 +78,10 @@ export const featuredResources: NavItem[] = [
     description: "Create short, branded links",
   },
   {
-    name: "LaTeX to Word",
-    href: "#",
-    icon: Wrench,
-    description: "Convert LaTeX to Word",
-    badge: "Coming Soon",
-  },
-  {
-    name: "API Playground",
-    href: "#",
-    icon: Sparkles,
-    description: "Test our APIs",
-    badge: "Coming Soon",
+    name: "Downloads",
+    href: "/downloads",
+    icon: Download,
+    description: "Access important documents",
   },
 ];
 
@@ -93,11 +90,19 @@ export const footerNavSections: NavSection[] = [
   {
     title: "Resources",
     items: [
-      { name: "Reference Converter", href: "/tools/ref" },
-      { name: "URL Shortener", href: "/tools/s" },
-      { name: "LaTeX to Word", href: "#" },
-      { name: "API Playground", href: "#" },
       { name: "All Resources", href: "/#resources" },
+      { name: "Converters", href: "/#converters" },
+      { name: "URL Shortener", href: "/tools/s" },
+      { name: "Image Tools", href: "/tools/img" },
+      { name: "Downloads", href: "/downloads" },
+    ],
+  },
+  {
+    title: "Converters",
+    items: [
+      { name: "Reference to BibTeX", href: "/tools/ref" },
+      { name: "LaTeX to Word", href: "/tools/latex" },
+      { name: "Word to LaTeX", href: "#" },
     ],
   },
   {

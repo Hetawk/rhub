@@ -1,4 +1,11 @@
-import { FileText, Link2, Image, Download, Video } from "lucide-react";
+import {
+  FileText,
+  Link2,
+  Image,
+  Download,
+  Video,
+  FileCode,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface ToolConfig {
@@ -7,11 +14,13 @@ export interface ToolConfig {
   tagline: string;
   summary: string;
   category: "converter" | "utility" | "download" | "media";
-  group: "img" | "ref" | "url" | "vid" | "audio" | "docs";
+  group: "img" | "ref" | "url" | "vid" | "audio" | "docs" | "latex" | "word";
+  subcategory?: "reference" | "latex" | "word" | "image" | "video";
   status: "live" | "beta" | "coming-soon";
   featured: boolean;
   icon: LucideIcon;
   path: string;
+  hasSubTools?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -25,6 +34,7 @@ export const TOOLS: ToolConfig[] = [
       "Convert EndNote XML, RIS, and enriched exports into validated BibTeX entries. Built for academic research.",
     category: "converter",
     group: "ref",
+    subcategory: "reference",
     status: "live",
     featured: true,
     icon: FileText,
@@ -32,6 +42,34 @@ export const TOOLS: ToolConfig[] = [
     metadata: {
       supportedFormats: ["xml", "ris", "enl"],
       outputFormats: ["bibtex", "biblatex"],
+    },
+  },
+
+  // LaTeX Converters
+  {
+    slug: "latex",
+    title: "LaTeX Converters",
+    tagline: "Convert LaTeX documents with journal detection",
+    summary:
+      "Convert LaTeX to Word with automatic journal detection for Elsevier, IEEE, Springer, and ACM. Preserves formatting, figures, and bibliographies.",
+    category: "converter",
+    group: "latex",
+    subcategory: "latex",
+    status: "live",
+    featured: true,
+    icon: FileCode,
+    path: "/tools/latex",
+    hasSubTools: true,
+    metadata: {
+      supportedJournals: ["Elsevier", "IEEE", "Springer Nature", "ACM"],
+      inputFormats: [".tex", ".latex", ".zip"],
+      outputFormats: ["Word (.docx)"],
+      features: [
+        "Automatic journal detection",
+        "ZIP file support",
+        "Recursive asset resolution",
+        "Bibliography processing",
+      ],
     },
   },
 
@@ -164,10 +202,20 @@ export function getToolsByCategory(category: string): ToolConfig[] {
   return TOOLS.filter((tool) => tool.category === category);
 }
 
+export function getToolsBySubcategory(subcategory: string): ToolConfig[] {
+  return TOOLS.filter((tool) => tool.subcategory === subcategory);
+}
+
 export function getFeaturedTools(): ToolConfig[] {
   return TOOLS.filter((tool) => tool.featured && tool.status === "live");
 }
 
 export function getLiveTools(): ToolConfig[] {
   return TOOLS.filter((tool) => tool.status === "live");
+}
+
+export function getConverterTools(): ToolConfig[] {
+  return TOOLS.filter(
+    (tool) => tool.category === "converter" && tool.status === "live"
+  );
 }

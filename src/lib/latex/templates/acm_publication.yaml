@@ -1,0 +1,47 @@
+---
+# ACM Publication Template
+# For journals and conferences using acmart document class
+# Optimized for ACM submissions
+
+# Document settings
+standalone: true
+toc: false
+number-sections: true
+
+# Font configuration
+mainfont: "Times New Roman"
+sansfont: "Arial"
+monofont: "Courier New"
+fontsize: 10pt
+linestretch: 1.0
+
+# Page margins (ACM standard)
+geometry:
+  - top=2.54cm
+  - bottom=2.54cm
+  - left=1.9cm
+  - right=1.9cm
+
+# Bibliography style (ACM numeric)
+bibliography-style: acm-numeric
+citeproc: true
+link-citations: true
+
+# Table of contents
+toc-depth: 3
+
+# Code highlighting
+highlight-style: tango
+
+# Metadata preservation
+preserve-tabs: false
+preserve-yaml: true
+
+# Figure and table settings
+reference-section-title: "References"
+linkcolor: blue
+citecolor: blue
+urlcolor: blue
+
+# Word-specific settings
+reference-doc: null
