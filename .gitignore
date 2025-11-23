@@ -13,6 +13,9 @@
 # Documentation (local development only)
 zdoc/
 
+# Scripts (may contain secrets or local config)
+scripts/
+
 # testing
 /coverage
 
