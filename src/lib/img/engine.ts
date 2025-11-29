@@ -31,6 +31,58 @@ export interface ImageConversionResult {
   processingTime: number;
 }
 
+/**
+ * Convert raster image to SVG by embedding as base64 data URI
+ * This creates a scalable SVG container with the embedded raster image
+ */
+async function convertRasterToSvg(
+  inputBuffer: Buffer,
+  fromFormat: ImageFormat,
+  options: ImageConversionOptions
+): Promise<ImageConversionResult> {
+  const start = Date.now();
+  
+  // Get image metadata
+  const metadata = await sharp(inputBuffer).metadata();
+  let width = options.width || metadata.width || 100;
+  let height = options.height || metadata.height || 100;
+  
+  // Resize if needed
+  let processedBuffer = inputBuffer;
+  if (options.width || options.height) {
+    processedBuffer = await sharp(inputBuffer)
+      .resize(options.width, options.height, { fit: 'inside', withoutEnlargement: true })
+      .toBuffer();
+    const newMeta = await sharp(processedBuffer).metadata();
+    width = newMeta.width || width;
+    height = newMeta.height || height;
+  }
+  
+  // Convert to PNG for embedding (universal support)
+  const pngBuffer = await sharp(processedBuffer).png().toBuffer();
+  const base64 = pngBuffer.toString('base64');
+  
+  // Create SVG with embedded image
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <title>Converted from ${fromFormat.toUpperCase()}</title>
+  <image width="${width}" height="${height}" 
+         xlink:href="data:image/png;base64,${base64}" />
+</svg>`;
+  
+  const buffer = Buffer.from(svg, 'utf-8');
+  
+  return {
+    buffer,
+    format: 'svg',
+    width,
+    height,
+    size: buffer.length,
+    processingTime: Date.now() - start,
+  };
+}
+
 export async function convertImage(
   inputBuffer: Buffer,
   fromFormat: ImageFormat,
@@ -115,10 +167,9 @@ export async function convertImage(
         break;
 
       case "svg":
-        // Converting TO SVG from raster formats requires vectorization
-        throw new Error(
-          "Converting raster images to SVG requires vectorization - use a dedicated vectorization tool"
-        );
+        // For raster to SVG, embed the image as base64 data URI in an SVG wrapper
+        // This preserves the original image in a vector container
+        return await convertRasterToSvg(inputBuffer, fromFormat, options);
 
       default:
         throw new Error(`Unsupported output format: ${options.format}`);

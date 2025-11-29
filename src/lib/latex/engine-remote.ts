@@ -4,7 +4,6 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { ZipContents, resolveAssetPaths, validateAssets } from "./zip-handler";
-import { DEFAULT_SETTINGS } from "./types";
 import {
   executeRemoteCommand,
   checkRemotePandocInstalled,
@@ -95,8 +94,7 @@ export async function convertLatexToWord(
     // Step 9: Gather statistics
     const stats = await gatherConversionStats(
       outputFile,
-      context.zipContents,
-      assets
+      context.zipContents
     );
 
     const durationMs = Date.now() - startTime;
@@ -241,7 +239,7 @@ async function runRemotePandocConversion(
     timeout: 10000,
   });
 
-  if (!findMainResult.success || !findMainResult.output) {
+  if (!findMainResult.success || !findMainResult.output?.trim()) {
     return {
       success: false,
       error: "Could not find main .tex file on remote server",
@@ -252,24 +250,21 @@ async function runRemotePandocConversion(
   const outputPath = `${remoteWorkDir}/output/converted.docx`;
   const templatePath = `${REMOTE_TEMPLATES_DIR}/${templateName}`;
 
-  // Build Pandoc command with robust error handling
-  const pandocCommand = `
-    cd ${remoteWorkDir}/input && \\
-    pandoc "${mainTexPath}" \\
-      -o "${outputPath}" \\
-      --from=latex \\
-      --to=docx \\
-      --standalone \\
-      --citeproc \\
-      --number-sections \\
-      --toc \\
-      --reference-links \\
-      --variable mainfont="${DEFAULT_SETTINGS.fontFamily}" \\
-      --variable fontsize=${DEFAULT_SETTINGS.fontSize}pt \\
-      --variable linestretch=${DEFAULT_SETTINGS.lineSpacing} \\
-      ${templatePath && `--metadata-file="${templatePath}"`} \\
-      2>&1
-  `.trim();
+  // Check if template exists
+  const templateCheckResult = await executeRemoteCommand({
+    command: `test -f "${templatePath}" && echo "exists" || echo "missing"`,
+    timeout: 5000,
+  });
+
+  const useTemplate = templateCheckResult.output?.trim() === "exists";
+  if (!useTemplate) {
+    warnings.push(`Template not found: ${templateName}, using defaults`);
+  }
+
+  // Build Pandoc command - simpler and more robust
+  const templateArg = useTemplate ? `--metadata-file="${templatePath}"` : '';
+  
+  const pandocCommand = `cd "${remoteWorkDir}/input" && pandoc "${mainTexPath}" -o "${outputPath}" --from=latex --to=docx --standalone ${templateArg} 2>&1`;
 
   const conversionResult = await executeRemoteCommand({
     command: pandocCommand,
@@ -358,8 +353,7 @@ async function cleanupRemoteDirectory(remoteWorkDir: string): Promise<void> {
  */
 async function gatherConversionStats(
   outputFile: string,
-  zipContents: ZipContents,
-  _assets: { figures: string[]; inputs: string[]; bibliographies: string[] }
+  zipContents: ZipContents
 ): Promise<{
   outputSize: number;
   bibEntryCount: number;

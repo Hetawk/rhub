@@ -143,11 +143,17 @@ export async function POST(request: NextRequest) {
     const result = await Promise.race([conversionPromise, timeoutPromise]);
 
     if (!result.success) {
+      // Cleanup on conversion failure
+      if (tempDir) {
+        cleanupTempDir(tempDir).catch(console.error);
+      }
+      
       return NextResponse.json(
         {
           success: false,
-          error: result.errorMessage,
+          error: result.errorMessage || 'Conversion failed - check server logs',
           warnings: result.warnings,
+          durationMs: result.durationMs,
         },
         { status: 500 }
       );
@@ -156,27 +162,30 @@ export async function POST(request: NextRequest) {
     // Read the output file
     const outputFile = result.outputFile!;
     const outputBuffer = await fs.readFile(outputFile);
-
-    // TODO: Store conversion in database
-    // const conversion = await prisma.laTeXConversion.create({ ... });
-
-    // Return file as download
-    const response = new NextResponse(outputBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename="converted_${Date.now()}.docx"`,
-        "Content-Length": outputBuffer.length.toString(),
-      },
-    });
-
-    // Cleanup temp directory after response
+    
+    // Convert to base64 for JSON response
+    const base64File = outputBuffer.toString('base64');
+    
+    // Cleanup temp directory
     if (tempDir) {
       cleanupTempDir(tempDir).catch(console.error);
     }
 
-    return response;
+    // Return JSON with file data and stats
+    return NextResponse.json({
+      success: true,
+      file: base64File,
+      filename: `converted_${Date.now()}.docx`,
+      outputSize: result.outputSize,
+      detectedJournal: result.detectedJournal,
+      documentClass: result.documentClass,
+      bibEntryCount: result.bibEntryCount,
+      figureCount: result.figureCount,
+      tableCount: result.tableCount,
+      warningCount: result.warningCount,
+      warnings: result.warnings,
+      durationMs: result.durationMs,
+    });
   } catch (error) {
     console.error("Conversion error:", error);
 
