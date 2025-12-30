@@ -82,13 +82,14 @@ async function setupRemoteEnvironment(remoteWorkDir: string): Promise<{
     };
   }
 
-  // Verify directories exist
+  // Verify directories exist - just check exit code, don't rely on output parsing
   const verifyResult = await executeRemoteCommand({
-    command: `test -d "${remoteWorkDir}/input" && test -d "${remoteWorkDir}/output" && echo "OK"`,
+    command: `test -d "${remoteWorkDir}/input" && test -d "${remoteWorkDir}/output"`,
     timeout: 5000,
   });
 
-  if (!verifyResult.success || !verifyResult.output?.includes("OK")) {
+  // Exit code 0 means both directories exist
+  if (verifyResult.exitCode !== 0) {
     return {
       success: false,
       error:
@@ -181,13 +182,14 @@ async function uploadFileToRemote(
     }
   }
 
-  // Verify the file was created and has content
+  // Verify the file was created and has content - use exit code only
   const verifyResult = await executeRemoteCommand({
-    command: `test -f "${remotePath}" && test -s "${remotePath}" && echo "OK"`,
+    command: `test -f "${remotePath}" && test -s "${remotePath}"`,
     timeout: 5000,
   });
 
-  if (!verifyResult.success || !verifyResult.output?.includes("OK")) {
+  // Exit code 0 means file exists and is not empty
+  if (verifyResult.exitCode !== 0) {
     return {
       success: false,
       error: "File verification failed - file may be empty or not created",
