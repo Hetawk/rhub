@@ -224,52 +224,46 @@ async function runRemoteLibreOfficeConversion(
 
   const filter = filterMap[outputFormat] || outputFormat;
 
-  // Run LibreOffice conversion
-  const conversionCommand = `cd ${outputDir} && libreoffice --headless --convert-to "${filter}" --outdir "${outputDir}" "${inputPath}" 2>&1`;
+  // Run LibreOffice conversion - don't rely on success flag, just run the command
+  const conversionCommand = `cd ${outputDir} && libreoffice --headless --convert-to "${filter}" --outdir "${outputDir}" "${inputPath}" 2>&1 || soffice --headless --convert-to "${filter}" --outdir "${outputDir}" "${inputPath}" 2>&1`;
 
   const result = await executeRemoteCommand({
     command: conversionCommand,
-    timeout: 120000, // 2 minute timeout for large documents
+    timeout: 180000, // 3 minute timeout for large documents
   });
 
-  if (!result.success) {
-    // Try with soffice as fallback
-    const fallbackCommand = `cd ${outputDir} && soffice --headless --convert-to "${filter}" --outdir "${outputDir}" "${inputPath}" 2>&1`;
-    const fallbackResult = await executeRemoteCommand({
-      command: fallbackCommand,
-      timeout: 120000,
-    });
-
-    if (!fallbackResult.success) {
-      return {
-        success: false,
-        error: `LibreOffice conversion failed: ${
-          result.output || result.error
-        }`,
-      };
-    }
-
-    if (fallbackResult.output) {
-      warnings.push(`LibreOffice output: ${fallbackResult.output}`);
-    }
-  } else if (result.output) {
-    // Check for warnings in output
+  // Log output for debugging
+  if (result.output) {
+    console.log(`[Doc Conversion] LibreOffice output: ${result.output}`);
     if (result.output.toLowerCase().includes("warning")) {
       warnings.push(`LibreOffice: ${result.output}`);
     }
   }
 
-  // Find the output file
+  // Give LibreOffice a moment to finish writing the file
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Find the output file - check for output content rather than success flag
   const findResult = await executeRemoteCommand({
-    command: `ls -1 ${outputDir}/ | head -1`,
+    command: `ls -1 ${outputDir}/ 2>/dev/null | head -1`,
     timeout: 10000,
   });
 
-  if (!findResult.success || !findResult.output?.trim()) {
-    return { success: false, error: "No output file produced" };
+  const outputFilename = findResult.output?.trim();
+  if (!outputFilename) {
+    // Debug: Check what's in the output directory
+    const debugResult = await executeRemoteCommand({
+      command: `ls -la ${outputDir}/ 2>&1; echo "---"; ls -la ${remoteWorkDir}/input/ 2>&1`,
+      timeout: 10000,
+    });
+    return {
+      success: false,
+      error: `No output file produced. Debug: ${
+        debugResult.output || "no debug output"
+      }`,
+    };
   }
 
-  const outputFilename = findResult.output.trim();
   return {
     success: true,
     outputFile: `${outputDir}/${outputFilename}`,

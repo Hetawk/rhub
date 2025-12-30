@@ -46,3 +46,16 @@
  GET /api/v1/admin/status 200 in 76s (compile: 224ms, render: 75s)
  GET /api/v1/admin/status 200 in 74s (compile: 6ms, render: 74s)
  GET /api/v1/admin/status 200 in 75s (compile: 9ms, render: 75s)
+ GET / 200 in 2.7s (compile: 1954ms, render: 728ms)
+ GET /tools/doc/pdf-to-word 200 in 636ms (compile: 600ms, generate-params: 296ms, render: 35ms)
+Document conversion error: Error: Document conversion failed: No output file produced
+    at convertDocument (src/lib/doc/engine-remote.ts:370:11)
+    at async POST (src/app/api/tools/doc/convert/route.ts:90:20)
+  368 |     await cleanupRemoteDirectory(remoteWorkDir).catch(() => {});
+  369 |
+> 370 |     throw new Error(
+      |           ^
+  371 |       `Document conversion failed: ${
+  372 |         error instanceof Error ? error.message : String(error)
+  373 |       }`
+ POST /api/tools/doc/convert 500 in 6.2min (compile: 83ms, render: 6.2min)
