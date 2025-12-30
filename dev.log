@@ -42,3 +42,4 @@
 [Admin Setup] Running: Verify LibreOffice installation
  POST /api/v1/admin/setup 200 in 39.8s (compile: 133ms, render: 39.7s)
  GET /api/v1/admin/status 200 in 77s (compile: 4ms, render: 77s)
+ GET /api/tools/doc/setup 200 in 9.5s (compile: 175ms, render: 9.3s)

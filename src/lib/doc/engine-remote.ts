@@ -67,21 +67,33 @@ async function setupRemoteEnvironment(remoteWorkDir: string): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const commands = [
-    `mkdir -p ${remoteWorkDir}`,
-    `mkdir -p ${remoteWorkDir}/input`,
-    `mkdir -p ${remoteWorkDir}/output`,
-    `chmod 755 ${remoteWorkDir}`,
-  ];
+  // Create all directories in one command for reliability
+  const setupCommand = `mkdir -p "${remoteWorkDir}/input" "${remoteWorkDir}/output" && chmod -R 755 "${remoteWorkDir}"`;
 
-  for (const command of commands) {
-    const result = await executeRemoteCommand({ command, timeout: 10000 });
-    if (!result.success) {
-      return {
-        success: false,
-        error: `Setup failed: ${result.output || result.error}`,
-      };
-    }
+  const result = await executeRemoteCommand({
+    command: setupCommand,
+    timeout: 15000,
+  });
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: `Setup failed: ${result.error || result.output}`,
+    };
+  }
+
+  // Verify directories exist
+  const verifyResult = await executeRemoteCommand({
+    command: `test -d "${remoteWorkDir}/input" && test -d "${remoteWorkDir}/output" && echo "OK"`,
+    timeout: 5000,
+  });
+
+  if (!verifyResult.success || !verifyResult.output?.includes("OK")) {
+    return {
+      success: false,
+      error:
+        "Directory verification failed - directories may not have been created",
+    };
   }
 
   return { success: true };
@@ -89,6 +101,7 @@ async function setupRemoteEnvironment(remoteWorkDir: string): Promise<{
 
 /**
  * Uploads file to remote server using base64 encoding
+ * Uses a more reliable approach with proper file creation and chunking
  */
 async function uploadFileToRemote(
   buffer: Buffer,
@@ -97,54 +110,88 @@ async function uploadFileToRemote(
   const base64Content = buffer.toString("base64");
 
   // For large files, we need to chunk the upload
-  const chunkSize = 50000; // ~50KB chunks to avoid command line limits
+  const chunkSize = 32000; // ~32KB chunks to be safe with command line limits
 
   if (base64Content.length > chunkSize) {
-    // Create empty file first
+    // Create empty file first using touch (more reliable than >)
     const createResult = await executeRemoteCommand({
-      command: `> "${remotePath}"`,
-      timeout: 5000,
+      command: `touch "${remotePath}.b64" && chmod 644 "${remotePath}.b64"`,
+      timeout: 10000,
     });
 
     if (!createResult.success) {
-      return { success: false, error: "Failed to create file" };
+      return {
+        success: false,
+        error: `Failed to create file: ${
+          createResult.error || createResult.output
+        }`,
+      };
     }
 
-    // Upload in chunks
+    // Upload in chunks using printf (more reliable than echo -n)
+    const totalChunks = Math.ceil(base64Content.length / chunkSize);
     for (let i = 0; i < base64Content.length; i += chunkSize) {
       const chunk = base64Content.slice(i, i + chunkSize);
+      const chunkNum = Math.floor(i / chunkSize) + 1;
+
+      // Use printf with proper escaping - avoid special characters in shell
       const appendResult = await executeRemoteCommand({
-        command: `echo -n "${chunk}" >> "${remotePath}.b64"`,
+        command: `printf '%s' '${chunk}' >> "${remotePath}.b64"`,
         timeout: 30000,
       });
 
       if (!appendResult.success) {
+        // Cleanup on failure
+        await executeRemoteCommand({
+          command: `rm -f "${remotePath}.b64"`,
+          timeout: 5000,
+        });
         return {
           success: false,
-          error: `Failed to upload chunk at offset ${i}`,
+          error: `Failed to upload chunk ${chunkNum}/${totalChunks}: ${
+            appendResult.error || appendResult.output
+          }`,
         };
       }
     }
 
     // Decode the complete base64 file
     const decodeResult = await executeRemoteCommand({
-      command: `base64 -d "${remotePath}.b64" > "${remotePath}" && rm "${remotePath}.b64"`,
-      timeout: 30000,
+      command: `base64 -d "${remotePath}.b64" > "${remotePath}" && rm -f "${remotePath}.b64"`,
+      timeout: 60000,
     });
 
     if (!decodeResult.success) {
-      return { success: false, error: "Failed to decode uploaded file" };
+      return {
+        success: false,
+        error: `Failed to decode uploaded file: ${
+          decodeResult.error || decodeResult.output
+        }`,
+      };
     }
   } else {
-    // Small file - upload in one go
+    // Small file - upload in one go using printf
     const uploadResult = await executeRemoteCommand({
-      command: `echo "${base64Content}" | base64 -d > "${remotePath}"`,
+      command: `printf '%s' '${base64Content}' | base64 -d > "${remotePath}"`,
       timeout: 30000,
     });
 
     if (!uploadResult.success) {
       return { success: false, error: uploadResult.error || "Upload failed" };
     }
+  }
+
+  // Verify the file was created and has content
+  const verifyResult = await executeRemoteCommand({
+    command: `test -f "${remotePath}" && test -s "${remotePath}" && echo "OK"`,
+    timeout: 5000,
+  });
+
+  if (!verifyResult.success || !verifyResult.output?.includes("OK")) {
+    return {
+      success: false,
+      error: "File verification failed - file may be empty or not created",
+    };
   }
 
   return { success: true };
