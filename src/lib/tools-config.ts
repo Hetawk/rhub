@@ -5,6 +5,7 @@ import {
   Download,
   Video,
   FileCode,
+  FileOutput,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -14,8 +15,17 @@ export interface ToolConfig {
   tagline: string;
   summary: string;
   category: "converter" | "utility" | "download" | "media";
-  group: "img" | "ref" | "url" | "vid" | "audio" | "docs" | "latex" | "word";
-  subcategory?: "reference" | "latex" | "word" | "image" | "video";
+  group:
+    | "img"
+    | "ref"
+    | "url"
+    | "vid"
+    | "audio"
+    | "docs"
+    | "latex"
+    | "word"
+    | "doc";
+  subcategory?: "reference" | "latex" | "word" | "image" | "video" | "document";
   status: "live" | "beta" | "coming-soon";
   featured: boolean;
   icon: LucideIcon;
@@ -185,6 +195,33 @@ export const TOOLS: ToolConfig[] = [
       formats: ["MP4", "MP3"],
       qualities: ["1080p", "720p", "480p"],
       features: ["No watermark", "Reels", "IGTV", "Posts"],
+    },
+  },
+
+  // Document Converters
+  {
+    slug: "doc",
+    title: "Document Converters",
+    tagline: "Convert PDF, Word, and other documents",
+    summary:
+      "Professional document conversion supporting PDF to Word, Word to PDF, and more. Preserves formatting, images, and tables.",
+    category: "converter",
+    group: "doc",
+    subcategory: "document",
+    status: "live",
+    featured: true,
+    icon: FileOutput,
+    path: "/tools/doc",
+    hasSubTools: true,
+    metadata: {
+      supportedFormats: ["pdf", "docx", "doc", "odt", "rtf", "txt", "html"],
+      totalConversions: 20,
+      features: [
+        "PDF to Word",
+        "Word to PDF",
+        "Formatting preservation",
+        "LibreOffice powered",
+      ],
     },
   },
 ];

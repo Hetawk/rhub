@@ -17,11 +17,21 @@ interface TerminalExecuteResult {
 /**
  * Executes a command on the remote VPS server via TTYD terminal API
  * Uses root access provided by TTYD_KEY - no SSH password needed
+ *
+ * @param commandOrOptions - Either a command string or full options object
+ * @param timeout - Optional timeout when using string command (default: 60000)
  */
 export async function executeRemoteCommand(
-  options: TerminalExecuteOptions
+  commandOrOptions: string | TerminalExecuteOptions,
+  timeout?: number
 ): Promise<TerminalExecuteResult> {
-  const { command, timeout = 60000, workingDirectory } = options;
+  // Normalize input to options object
+  const options: TerminalExecuteOptions =
+    typeof commandOrOptions === "string"
+      ? { command: commandOrOptions, timeout: timeout ?? 60000 }
+      : commandOrOptions;
+
+  const { command, timeout: cmdTimeout = 60000, workingDirectory } = options;
 
   const ttydKey = process.env.TTYD_KEY;
   const ttydBaseUrl = process.env.TTYD_BASE_URL;
@@ -45,7 +55,9 @@ export async function executeRemoteCommand(
   }
 
   try {
-    const sessionId = `rhub-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const sessionId = `rhub-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}`;
 
     // Step 1: Connect (create session)
     const connectResponse = await fetch(`${ttydBaseUrl}/api/ttyd/connect`, {
@@ -55,7 +67,7 @@ export async function executeRemoteCommand(
         Authorization: `Bearer ${ttydKey}`,
       },
       body: JSON.stringify({ sessionId }),
-      signal: AbortSignal.timeout(timeout),
+      signal: AbortSignal.timeout(cmdTimeout),
     });
 
     if (!connectResponse.ok) {
@@ -90,7 +102,7 @@ export async function executeRemoteCommand(
         sessionId: realSessionId,
         command: wrappedCommand + "\n",
       }),
-      signal: AbortSignal.timeout(timeout),
+      signal: AbortSignal.timeout(cmdTimeout),
     });
 
     if (!executeResponse.ok) {
@@ -177,8 +189,6 @@ function extractExitCode(fullOutput: string): number {
   const match = fullOutput.match(/END_TEST_(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
 }
-
-
 
 /**
  * Checks if Pandoc is installed on the remote server

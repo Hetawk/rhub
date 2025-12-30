@@ -2,36 +2,43 @@
 > rhub@0.1.0 dev
 > next dev
 
-[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
-   ▲ Next.js 16.0.3 (Turbopack)
-   - Local:         http://localhost:3000
-   - Network:       http://192.168.1.101:3000
-   - Environments: .env
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.100:3000
+- Environments: .env
 
- ✓ Starting...
- ✓ Ready in 746ms
-[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
- GET / 200 in 3.1s (compile: 2.8s, render: 286ms)
- GET /tools/latex 200 in 435ms (compile: 406ms, render: 29ms)
- GET /tools/img 200 in 325ms (compile: 257ms, render: 68ms)
- GET /tools/img/svg-to-png 200 in 633ms (compile: 618ms, render: 15ms)
- GET /tools/img/png-to-svg 200 in 35ms (compile: 10ms, render: 26ms)
-Image conversion error: Error: Image conversion failed: Converting raster images to SVG requires vectorization - use a dedicated vectorization tool
-    at convertImage (src/lib/img/engine.ts:139:11)
-    at POST (src/app/api/tools/img/convert/route.ts:46:38)
-  137 |     };
-  138 |   } catch (error) {
-> 139 |     throw new Error(
-      |           ^
-  140 |       `Image conversion failed: ${
-  141 |         error instanceof Error ? error.message : "Unknown error"
-  142 |       }`
- POST /api/tools/img/convert 500 in 380ms (compile: 245ms, render: 135ms)
- GET /tools/img/png-to-gif 200 in 37ms (compile: 11ms, render: 26ms)
- POST /api/tools/img/convert 200 in 3.2s (compile: 5ms, render: 3.2s)
- GET /tools/img/svg-to-png 200 in 38ms (compile: 14ms, render: 24ms)
- POST /api/tools/img/convert 200 in 1332ms (compile: 5ms, render: 1327ms)
- GET /tools/latex 200 in 36ms (compile: 4ms, render: 32ms)
- GET /tools/latex/latex-to-word 200 in 599ms (compile: 582ms, render: 17ms)
- POST /api/tools/latex/convert 500 in 2.5min (compile: 121ms, render: 2.5min)
- ✓ Compiled in 139ms
+✓ Starting...
+✓ Ready in 926ms
+ GET /api/v1/admin/status 200 in 89s (compile: 525ms, render: 89s)
+ GET /api/v1/admin/install 200 in 37.9s (compile: 83ms, render: 37.8s)
+[Admin Install] Installing documents: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress
+[Admin Install] Installing pdf: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils ghostscript qpdf
+[Admin Install] Installing images: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick graphicsmagick
+[Admin Install] Installing ocr: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tesseract-ocr tesseract-ocr-eng
+ POST /api/v1/admin/install 200 in 104s (compile: 4ms, render: 104s)
+ GET /api/v1/admin/status 200 in 72s (compile: 3ms, render: 72s)
+[Admin Install] Installing documents: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress
+ POST /api/v1/admin/install 200 in 15.5s (compile: 4ms, render: 15.5s)
+ GET /api/v1/admin/status 200 in 76s (compile: 41ms, render: 76s)
+[Admin Install] Installing pdf: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils ghostscript qpdf
+ POST /api/v1/admin/install 200 in 14.9s (compile: 45ms, render: 14.9s)
+[Admin Install] Updating package list for pdf
+[Admin Install] Installing pdf: poppler-utils ghostscript qpdf
+ POST /api/v1/admin/install 200 in 63s (compile: 42ms, render: 63s)
+ GET /api/v1/admin/status 200 in 78s (compile: 6ms, render: 78s)
+[Admin Install] Updating package list for images
+[Admin Install] Installing images: imagemagick graphicsmagick
+ POST /api/v1/admin/install 200 in 63s (compile: 3ms, render: 63s)
+[Admin Install] Updating package list for ocr
+[Admin Install] Installing ocr: tesseract-ocr tesseract-ocr-eng
+ POST /api/v1/admin/install 200 in 103s (compile: 6ms, render: 103s)
+[Admin Install] Updating package list for documents
+[Admin Install] Installing documents: libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress
+ POST /api/v1/admin/install 200 in 2.1min (compile: 4ms, render: 2.1min)
+ GET /api/v1/admin/status 200 in 79s (compile: 4ms, render: 79s)
+[Admin Setup] Running: Update package list
+[Admin Setup] Running: Install LibreOffice (Core)
+[Admin Setup] Running: Create work directories
+[Admin Setup] Running: Verify LibreOffice installation
+ POST /api/v1/admin/setup 200 in 39.8s (compile: 133ms, render: 39.7s)
+ GET /api/v1/admin/status 200 in 77s (compile: 4ms, render: 77s)

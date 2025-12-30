@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { getToolsByGroup } from "@/lib/tools-config";
 import { getFeaturedConversions } from "@/lib/img/conversions-config";
+import { getFeaturedDocumentTools } from "@/lib/doc/tools-config";
 
 export function ToolsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,9 +40,12 @@ export function ToolsDropdown() {
   const vidTools = getToolsByGroup("vid");
   const refTools = getToolsByGroup("ref");
   const urlTools = getToolsByGroup("url");
+  const docTools = getToolsByGroup("doc");
 
   // Get featured image conversions
   const featuredImgConversions = getFeaturedConversions().slice(0, 5);
+  // Get featured document conversions
+  const featuredDocTools = getFeaturedDocumentTools();
 
   return (
     <div
@@ -88,6 +92,29 @@ export function ToolsDropdown() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         25+ format conversions
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              )}
+
+              {/* Document Converters Group */}
+              {docTools.length > 0 && (
+                <div
+                  className="relative"
+                  onMouseEnter={() => setHoveredGroup("doc")}
+                >
+                  <Link
+                    href="/tools/doc"
+                    className="flex items-center justify-between rounded-md px-3 py-2 transition-colors hover:bg-accent hover:text-accent-foreground border-2 border-transparent hover:border-gold/20"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-foreground">
+                        Document Converters
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        PDF, Word, ODT & more
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4" />
@@ -196,6 +223,40 @@ export function ToolsDropdown() {
                       </div>
                     </Link>
                   ))}
+                </div>
+              )}
+
+              {hoveredGroup === "doc" && (
+                <div className="space-y-1 animate-in fade-in-0 slide-in-from-left-2">
+                  <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                    Document Conversions
+                  </div>
+                  {featuredDocTools.map((tool) => (
+                    <Link
+                      key={tool.slug}
+                      href={`/tools/doc/${tool.slug}`}
+                      className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground border-2 border-transparent hover:border-gold/20"
+                    >
+                      <div className="font-medium text-foreground">
+                        {tool.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {tool.inputFormat
+                          .map((f) => f.toUpperCase())
+                          .join(", ")}{" "}
+                        →{" "}
+                        {tool.outputFormat
+                          .map((f) => f.toUpperCase())
+                          .join(", ")}
+                      </div>
+                    </Link>
+                  ))}
+                  <Link
+                    href="/tools/doc"
+                    className="block rounded-md px-3 py-2 text-sm font-medium text-gold hover:bg-accent border-2 border-transparent hover:border-gold/20"
+                  >
+                    View all document tools →
+                  </Link>
                 </div>
               )}
 
