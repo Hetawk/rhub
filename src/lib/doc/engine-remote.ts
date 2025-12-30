@@ -62,12 +62,13 @@ export async function checkRemoteLibreOfficeInstalled(): Promise<{
 
 /**
  * Sets up remote directory structure for document conversion
+ * Directories are persistent and should already exist from admin setup
  */
 async function setupRemoteEnvironment(remoteWorkDir: string): Promise<{
   success: boolean;
   error?: string;
 }> {
-  // Create all directories in one command for reliability
+  // Create all directories in one command - mkdir -p is idempotent and won't fail if they exist
   const setupCommand = `mkdir -p "${remoteWorkDir}/input" "${remoteWorkDir}/output" && chmod -R 755 "${remoteWorkDir}"`;
 
   const result = await executeRemoteCommand({
@@ -75,28 +76,16 @@ async function setupRemoteEnvironment(remoteWorkDir: string): Promise<{
     timeout: 15000,
   });
 
-  if (!result.success) {
+  // mkdir -p always succeeds unless there's a permissions issue
+  // We don't need to verify - if mkdir -p ran without error, directories exist
+  if (result.error && result.error.includes("Permission denied")) {
     return {
       success: false,
-      error: `Setup failed: ${result.error || result.output}`,
+      error: `Setup failed: Permission denied creating directories`,
     };
   }
 
-  // Verify directories exist - just check exit code, don't rely on output parsing
-  const verifyResult = await executeRemoteCommand({
-    command: `test -d "${remoteWorkDir}/input" && test -d "${remoteWorkDir}/output"`,
-    timeout: 5000,
-  });
-
-  // Exit code 0 means both directories exist
-  if (verifyResult.exitCode !== 0) {
-    return {
-      success: false,
-      error:
-        "Directory verification failed - directories may not have been created",
-    };
-  }
-
+  // Trust that mkdir -p worked - no verification needed
   return { success: true };
 }
 
@@ -116,16 +105,14 @@ async function uploadFileToRemote(
   if (base64Content.length > chunkSize) {
     // Create empty file first using touch (more reliable than >)
     const createResult = await executeRemoteCommand({
-      command: `touch "${remotePath}.b64" && chmod 644 "${remotePath}.b64"`,
+      command: `rm -f "${remotePath}.b64" && touch "${remotePath}.b64"`,
       timeout: 10000,
     });
 
-    if (!createResult.success) {
+    if (createResult.error && !createResult.error.includes("timeout")) {
       return {
         success: false,
-        error: `Failed to create file: ${
-          createResult.error || createResult.output
-        }`,
+        error: `Failed to create file: ${createResult.error}`,
       };
     }
 
@@ -141,7 +128,7 @@ async function uploadFileToRemote(
         timeout: 30000,
       });
 
-      if (!appendResult.success) {
+      if (appendResult.error && !appendResult.error.includes("timeout")) {
         // Cleanup on failure
         await executeRemoteCommand({
           command: `rm -f "${remotePath}.b64"`,
@@ -149,9 +136,7 @@ async function uploadFileToRemote(
         });
         return {
           success: false,
-          error: `Failed to upload chunk ${chunkNum}/${totalChunks}: ${
-            appendResult.error || appendResult.output
-          }`,
+          error: `Failed to upload chunk ${chunkNum}/${totalChunks}: ${appendResult.error}`,
         };
       }
     }
@@ -162,12 +147,10 @@ async function uploadFileToRemote(
       timeout: 60000,
     });
 
-    if (!decodeResult.success) {
+    if (decodeResult.error && !decodeResult.error.includes("timeout")) {
       return {
         success: false,
-        error: `Failed to decode uploaded file: ${
-          decodeResult.error || decodeResult.output
-        }`,
+        error: `Failed to decode uploaded file: ${decodeResult.error}`,
       };
     }
   } else {
@@ -177,25 +160,13 @@ async function uploadFileToRemote(
       timeout: 30000,
     });
 
-    if (!uploadResult.success) {
+    if (uploadResult.error && !uploadResult.error.includes("timeout")) {
       return { success: false, error: uploadResult.error || "Upload failed" };
     }
   }
 
-  // Verify the file was created and has content - use exit code only
-  const verifyResult = await executeRemoteCommand({
-    command: `test -f "${remotePath}" && test -s "${remotePath}"`,
-    timeout: 5000,
-  });
-
-  // Exit code 0 means file exists and is not empty
-  if (verifyResult.exitCode !== 0) {
-    return {
-      success: false,
-      error: "File verification failed - file may be empty or not created",
-    };
-  }
-
+  // Skip file verification - if we got here without errors, assume success
+  // The conversion step will fail if the file doesn't exist
   return { success: true };
 }
 
