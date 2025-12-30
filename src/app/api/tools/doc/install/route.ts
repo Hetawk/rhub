@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { executeRemoteCommand } from "@/lib/terminal/client";
 
-export const maxDuration = 600; // 10 minutes
+export const maxDuration = 300; // 5 minute timeout (Vercel hobby limit)
 
 export async function POST(): Promise<NextResponse> {
   console.log("[INSTALL] Starting LibreOffice installation...");

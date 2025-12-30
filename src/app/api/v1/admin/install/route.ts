@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeRemoteCommand } from "@/lib/terminal/client";
 
-export const maxDuration = 600; // 10 minute timeout for installations
+export const maxDuration = 300; // 5 minute timeout (Vercel hobby limit)
 
 // Package categories for document conversion system
 const PACKAGE_CATEGORIES = {
