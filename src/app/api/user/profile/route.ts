@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { validateSession, hashPwd, verifyPwd } from "@/lib/auth";
+import {
+  validateSessionFull,
+  validateSession,
+  hashPwd,
+  verifyPwd,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -26,9 +31,11 @@ export async function GET() {
     if (!token)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await validateSession(token);
-    if (!user)
+    const result = await validateSessionFull(token);
+    if (!result)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { user, sessionCreatedAt } = result;
 
     const full = await prisma.user.findUnique({
       where: { id: user.id },
@@ -41,6 +48,7 @@ export async function GET() {
         isActive: true,
         emailVerified: true,
         createdAt: true,
+        roleChangedAt: true,
         password: true, // only to check if password is set
       },
     });
@@ -58,6 +66,8 @@ export async function GET() {
       isActive: full.isActive,
       emailVerified: full.emailVerified,
       createdAt: full.createdAt,
+      roleChangedAt: full.roleChangedAt ?? null,
+      sessionCreatedAt: sessionCreatedAt.toISOString(),
     });
   } catch (err) {
     console.error("[profile GET]", err);

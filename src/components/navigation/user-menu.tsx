@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,30 +18,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getRoleMeta } from "@/lib/roles";
-
-interface UserData {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import { useUser } from "@/contexts/user-context";
 
 export function UserMenu() {
-  const [user, setUser] = useState<UserData | null>(null);
+  const { user, loading, refresh } = useUser();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.id) setUser(data);
-      })
-      .catch(() => null)
-      .finally(() => setLoading(false));
-  }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -56,8 +39,8 @@ export function UserMenu() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    setUser(null);
     setOpen(false);
+    await refresh();
     router.push("/");
     router.refresh();
   };
@@ -71,8 +54,9 @@ export function UserMenu() {
       user.role,
     );
 
+  // Show skeleton only during the INITIAL load — never flash auth buttons first
   if (loading) {
-    return <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />;
+    return <div className="h-8 w-20 rounded-full bg-muted animate-pulse" />;
   }
 
   // Not logged in

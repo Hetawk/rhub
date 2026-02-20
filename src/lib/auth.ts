@@ -6,7 +6,10 @@ export async function hashPwd(pwd: string): Promise<string> {
   return bcrypt.hash(pwd, 10);
 }
 
-export async function verifyPwd(pwd: string, hash: string | null): Promise<boolean> {
+export async function verifyPwd(
+  pwd: string,
+  hash: string | null,
+): Promise<boolean> {
   if (!hash) return false; // OAuth-only user has no password
   return bcrypt.compare(pwd, hash);
 }
@@ -42,6 +45,21 @@ export async function validateSession(token: string) {
   }
 
   return session.user;
+}
+
+/** Same as validateSession but also returns the session's createdAt timestamp,
+ *  used by /api/auth/me to detect role changes that occurred after login. */
+export async function validateSessionFull(token: string) {
+  const session = await prisma.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+
+  if (!session || session.expiresAt < new Date()) {
+    return null;
+  }
+
+  return { user: session.user, sessionCreatedAt: session.createdAt };
 }
 
 export async function deleteSession(token: string): Promise<void> {

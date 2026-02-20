@@ -207,6 +207,7 @@ model User {
     googleId       String?   @unique
     verifyToken    String?
     verifyTokenExp DateTime?
+    roleChangedAt  DateTime? // set when admin changes this user's role
     createdAt      DateTime  @default(now())
     updatedAt      DateTime  @updatedAt
     sessions       Session[]

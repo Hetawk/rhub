@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { validateSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendRoleChangeEmail } from "@/lib/mail";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -97,12 +98,16 @@ export async function PATCH(
     }
   }
 
+  const roleChanged = role !== undefined && role !== target.role;
+
   const updated = await prisma.user.update({
     where: { id },
     data: {
       ...(role !== undefined ? { role } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
       ...(name !== undefined ? { name: name.trim() } : {}),
+      // Mark the time the role was changed so the client can show a re-login banner
+      ...(roleChanged ? { roleChangedAt: new Date() } : {}),
     },
     select: {
       id: true,
@@ -114,6 +119,13 @@ export async function PATCH(
       createdAt: true,
     },
   });
+
+  // Fire-and-forget email notification when role changes
+  if (roleChanged) {
+    sendRoleChangeEmail(target.email, target.name, target.role, role!).catch(
+      (err) => console.error("[role-change-email]", err),
+    );
+  }
 
   return NextResponse.json({ user: updated });
 }

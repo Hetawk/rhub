@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { validateSession } from "@/lib/auth";
+import { validateSessionFull } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -11,18 +11,23 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
-    const user = await validateSession(token);
+    const result = await validateSessionFull(token);
 
-    if (!user) {
+    if (!result) {
       cookieStore.delete("auth_token");
       return NextResponse.json({ user: null });
     }
+
+    const { user, sessionCreatedAt } = result;
 
     return NextResponse.json({
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
+      // roleChangedAt lets the client show a "please re-login" banner
+      roleChangedAt: user.roleChangedAt ?? null,
+      sessionCreatedAt: sessionCreatedAt.toISOString(),
     });
   } catch (error) {
     console.error("Me error:", error);

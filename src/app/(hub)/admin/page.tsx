@@ -16,12 +16,16 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AppShell } from "@/components/app-shell";
+import { RoleChangeBanner } from "@/components/role-change-banner";
 
 interface UserData {
   id: string;
   name: string;
   email: string;
   role: string;
+  roleChangedAt: string | null;
+  sessionCreatedAt: string;
 }
 
 interface AdminStats {
@@ -150,141 +154,147 @@ function AdminContent() {
   ].filter((a) => a.show);
 
   return (
-    <div className="max-w-5xl mx-auto py-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            {isSuperAdmin ? (
-              <Crown className="h-5 w-5 text-purple-500" />
-            ) : (
-              <Shield className="h-5 w-5 text-blue-500" />
-            )}
-            <h1 className="text-2xl font-bold text-foreground">
-              {isSuperAdmin ? "Super Admin Panel" : "Admin Panel"}
-            </h1>
+    <AppShell user={user}>
+      <div className="max-w-5xl space-y-8 py-2">
+        <RoleChangeBanner
+          roleChangedAt={user.roleChangedAt}
+          sessionCreatedAt={user.sessionCreatedAt}
+        />
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              {isSuperAdmin ? (
+                <Crown className="h-5 w-5 text-purple-500" />
+              ) : (
+                <Shield className="h-5 w-5 text-blue-500" />
+              )}
+              <h1 className="text-2xl font-bold text-foreground">
+                {isSuperAdmin ? "Super Admin Panel" : "Admin Panel"}
+              </h1>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Welcome,{" "}
+              <span className="font-semibold text-foreground">{user.name}</span>
+              . Manage the EKD Digital Resource Hub platform.
+            </p>
           </div>
-          <p className="text-muted-foreground text-sm">
-            Welcome,{" "}
-            <span className="font-semibold text-foreground">{user.name}</span>.
-            Manage the EKD Digital Resource Hub platform.
-          </p>
+          <Link
+            href="/dashboard"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
-        <Link
-          href="/dashboard"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
 
-      {/* Stats grid */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          Platform Overview
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {statCards.map((card) => (
-            <Link
-              key={card.label}
-              href={card.href}
-              className="rounded-xl border border-border bg-card hover:border-ekd-gold/30 hover:shadow-sm px-4 py-4 transition-all group"
-            >
-              <div
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-lg mb-3",
-                  card.bg,
-                )}
-              >
-                <card.icon className={cn("h-4 w-4", card.color)} />
-              </div>
-              <p className="text-2xl font-bold text-foreground">
-                {statsLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : typeof card.value === "number" ? (
-                  card.value.toLocaleString()
-                ) : (
-                  card.value
-                )}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {card.label}
-              </p>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Role breakdown */}
-      {stats?.roleBreakdown && (
+        {/* Stats grid */}
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            Users by Role
+            Platform Overview
           </h2>
-          <div className="rounded-xl border border-border bg-card divide-y divide-border">
-            {Object.entries(stats.roleBreakdown)
-              .sort(([a], [b]) => {
-                const order = [
-                  "SUPER_ADMIN",
-                  "ADMIN",
-                  "JUDGE_ADMIN",
-                  "HEAD_JUDGE",
-                  "JUDGE",
-                  "USER",
-                ];
-                return order.indexOf(a) - order.indexOf(b);
-              })
-              .map(([role, count]) => (
-                <div
-                  key={role}
-                  className="flex items-center justify-between px-5 py-3"
-                >
-                  <span className="text-sm font-medium text-foreground">
-                    {ROLE_LABELS[role] ?? role}
-                  </span>
-                  <span className="text-sm text-muted-foreground font-mono">
-                    {count}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Admin actions */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          Admin Actions
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {adminActions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="group flex items-center gap-4 rounded-xl border border-border bg-card hover:border-ekd-gold/30 hover:shadow-sm px-5 py-4 transition-all"
-            >
-              <div
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
-                  action.bg,
-                )}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {statCards.map((card) => (
+              <Link
+                key={card.label}
+                href={card.href}
+                className="rounded-xl border border-border bg-card hover:border-ekd-gold/30 hover:shadow-sm px-4 py-4 transition-all group"
               >
-                <action.icon className={cn("h-5 w-5", action.color)} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-foreground">
-                  {action.label}
+                <div
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-lg mb-3",
+                    card.bg,
+                  )}
+                >
+                  <card.icon className={cn("h-4 w-4", card.color)} />
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {statsLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : typeof card.value === "number" ? (
+                    card.value.toLocaleString()
+                  ) : (
+                    card.value
+                  )}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {action.description}
+                  {card.label}
                 </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-ekd-gold group-hover:translate-x-0.5 transition-all shrink-0" />
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Role breakdown */}
+        {stats?.roleBreakdown && (
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Users by Role
+            </h2>
+            <div className="rounded-xl border border-border bg-card divide-y divide-border">
+              {Object.entries(stats.roleBreakdown)
+                .sort(([a], [b]) => {
+                  const order = [
+                    "SUPER_ADMIN",
+                    "ADMIN",
+                    "JUDGE_ADMIN",
+                    "HEAD_JUDGE",
+                    "JUDGE",
+                    "USER",
+                  ];
+                  return order.indexOf(a) - order.indexOf(b);
+                })
+                .map(([role, count]) => (
+                  <div
+                    key={role}
+                    className="flex items-center justify-between px-5 py-3"
+                  >
+                    <span className="text-sm font-medium text-foreground">
+                      {ROLE_LABELS[role] ?? role}
+                    </span>
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {count}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Admin actions */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            Admin Actions
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {adminActions.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="group flex items-center gap-4 rounded-xl border border-border bg-card hover:border-ekd-gold/30 hover:shadow-sm px-5 py-4 transition-all"
+              >
+                <div
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
+                    action.bg,
+                  )}
+                >
+                  <action.icon className={cn("h-5 w-5", action.color)} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground">
+                    {action.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {action.description}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-ekd-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

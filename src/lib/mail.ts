@@ -300,3 +300,64 @@ export async function sendGameNotificationEmail(
     html,
   });
 }
+
+/**
+ * Sent to a user when an admin changes their role.
+ * Prompts them to sign out and back in to apply the new permissions.
+ */
+export async function sendRoleChangeEmail(
+  email: string,
+  name: string,
+  oldRole: string,
+  newRole: string,
+): Promise<boolean> {
+  const siteUrl = getSiteUrl();
+
+  const formatRole = (r: string) =>
+    r
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const html = brandedTemplate(`
+    <h2 style="margin:0 0 16px;color:#1f1c18;font-size:18px">Your Account Role Has Been Updated</h2>
+    <p style="color:#7a6e5a;line-height:1.6">Hi <strong>${name || "there"}</strong>,</p>
+    <p style="color:#7a6e5a;line-height:1.6">
+      An administrator has updated your role on the <strong>EKD Digital Resource Hub</strong>.
+    </p>
+    <div style="margin:20px 0;padding:16px 20px;background:#fdf9f2;border-radius:10px;border-left:4px solid #c8a061">
+      <table cellpadding="0" cellspacing="0" style="width:100%">
+        <tr>
+          <td style="color:#7a6e5a;font-size:13px;padding-bottom:8px">Previous role</td>
+          <td style="text-align:right">
+            <span style="display:inline-block;padding:3px 10px;background:#e5e7eb;color:#374151;border-radius:20px;font-size:12px;font-weight:600">${formatRole(oldRole)}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="color:#1f1c18;font-size:13px;font-weight:600">New role</td>
+          <td style="text-align:right">
+            <span style="display:inline-block;padding:3px 10px;background:#c8a061;color:#1f1c18;border-radius:20px;font-size:12px;font-weight:700">${formatRole(newRole)}</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p style="color:#7a6e5a;line-height:1.6">
+      To activate your new permissions, please <strong>sign out and sign back in</strong> to your account.
+    </p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${siteUrl}/dashboard"
+         style="display:inline-block;padding:12px 32px;background:#c8a061;color:#1f1c18;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">
+        Go to Dashboard
+      </a>
+    </div>
+    <p style="color:#7a6e5a;font-size:12px;line-height:1.6">
+      If you believe this change was made in error, please contact your system administrator.
+    </p>
+  `);
+
+  return sendEmail({
+    to: email,
+    subject: "Your EKD Digital Resource Hub role has been updated",
+    html,
+  });
+}
