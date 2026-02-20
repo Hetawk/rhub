@@ -16,6 +16,10 @@ zdoc/
 # Scripts (may contain secrets or local config)
 scripts/
 
+# Sensitive files (public/secrets folder should never include real secrets)
+public/secrets/
+public/private/
+
 # testing
 /coverage
 

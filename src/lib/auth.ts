@@ -6,7 +6,8 @@ export async function hashPwd(pwd: string): Promise<string> {
   return bcrypt.hash(pwd, 10);
 }
 
-export async function verifyPwd(pwd: string, hash: string): Promise<boolean> {
+export async function verifyPwd(pwd: string, hash: string | null): Promise<boolean> {
+  if (!hash) return false; // OAuth-only user has no password
   return bcrypt.compare(pwd, hash);
 }
 

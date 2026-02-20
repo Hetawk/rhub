@@ -2,60 +2,21 @@
 > rhub@0.1.0 dev
 > next dev
 
-▲ Next.js 16.1.1 (Turbopack)
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Volumes/1tb_ssd/EKD_Space/Documents/coding_env/web/andgroupco/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Volumes/1tb_ssd/EKD_Space/Documents/coding_env/web/andgroupco/rhub/package-lock.json
+
+▲ Next.js 16.1.6 (Turbopack)
 - Local:         http://localhost:3000
-- Network:       http://192.168.1.100:3000
+- Network:       http://192.168.1.105:3000
 - Environments: .env
 
 ✓ Starting...
-✓ Ready in 926ms
- GET /api/v1/admin/status 200 in 89s (compile: 525ms, render: 89s)
- GET /api/v1/admin/install 200 in 37.9s (compile: 83ms, render: 37.8s)
-[Admin Install] Installing documents: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress
-[Admin Install] Installing pdf: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils ghostscript qpdf
-[Admin Install] Installing images: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick graphicsmagick
-[Admin Install] Installing ocr: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tesseract-ocr tesseract-ocr-eng
- POST /api/v1/admin/install 200 in 104s (compile: 4ms, render: 104s)
- GET /api/v1/admin/status 200 in 72s (compile: 3ms, render: 72s)
-[Admin Install] Installing documents: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress
- POST /api/v1/admin/install 200 in 15.5s (compile: 4ms, render: 15.5s)
- GET /api/v1/admin/status 200 in 76s (compile: 41ms, render: 76s)
-[Admin Install] Installing pdf: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils ghostscript qpdf
- POST /api/v1/admin/install 200 in 14.9s (compile: 45ms, render: 14.9s)
-[Admin Install] Updating package list for pdf
-[Admin Install] Installing pdf: poppler-utils ghostscript qpdf
- POST /api/v1/admin/install 200 in 63s (compile: 42ms, render: 63s)
- GET /api/v1/admin/status 200 in 78s (compile: 6ms, render: 78s)
-[Admin Install] Updating package list for images
-[Admin Install] Installing images: imagemagick graphicsmagick
- POST /api/v1/admin/install 200 in 63s (compile: 3ms, render: 63s)
-[Admin Install] Updating package list for ocr
-[Admin Install] Installing ocr: tesseract-ocr tesseract-ocr-eng
- POST /api/v1/admin/install 200 in 103s (compile: 6ms, render: 103s)
-[Admin Install] Updating package list for documents
-[Admin Install] Installing documents: libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress
- POST /api/v1/admin/install 200 in 2.1min (compile: 4ms, render: 2.1min)
- GET /api/v1/admin/status 200 in 79s (compile: 4ms, render: 79s)
-[Admin Setup] Running: Update package list
-[Admin Setup] Running: Install LibreOffice (Core)
-[Admin Setup] Running: Create work directories
-[Admin Setup] Running: Verify LibreOffice installation
- POST /api/v1/admin/setup 200 in 39.8s (compile: 133ms, render: 39.7s)
- GET /api/v1/admin/status 200 in 77s (compile: 4ms, render: 77s)
- GET /api/tools/doc/setup 200 in 9.5s (compile: 175ms, render: 9.3s)
- GET /api/v1/admin/status 200 in 76s (compile: 224ms, render: 75s)
- GET /api/v1/admin/status 200 in 74s (compile: 6ms, render: 74s)
- GET /api/v1/admin/status 200 in 75s (compile: 9ms, render: 75s)
- GET / 200 in 2.7s (compile: 1954ms, render: 728ms)
- GET /tools/doc/pdf-to-word 200 in 636ms (compile: 600ms, generate-params: 296ms, render: 35ms)
-Document conversion error: Error: Document conversion failed: No output file produced
-    at convertDocument (src/lib/doc/engine-remote.ts:370:11)
-    at async POST (src/app/api/tools/doc/convert/route.ts:90:20)
-  368 |     await cleanupRemoteDirectory(remoteWorkDir).catch(() => {});
-  369 |
-> 370 |     throw new Error(
-      |           ^
-  371 |       `Document conversion failed: ${
-  372 |         error instanceof Error ? error.message : String(error)
-  373 |       }`
- POST /api/tools/doc/convert 500 in 6.2min (compile: 83ms, render: 6.2min)
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 5.6s
+○ Compiling / ...
+ GET / 200 in 5.2s (compile: 4.0s, proxy.ts: 73ms, render: 1067ms)
+ GET /api/auth/me 200 in 2.9s (compile: 415ms, proxy.ts: 150ms, render: 2.4s)

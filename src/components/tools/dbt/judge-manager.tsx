@@ -1,0 +1,496 @@
+"use client";
+
+/**
+ * JudgeManager — Allows JUDGE_ADMIN+ to assign judges to a debate event.
+ *
+ * Features:
+ *  - Live user search dropdown (queries /api/tools/dbt/users?q=...)
+ *  - Selecting an existing user pre-fills the form
+ *  - Typing an email not in the system sends an account-setup invite
+ *  - Lists current judges with remove option
+ */
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import { cn } from "@/lib/utils";
+import { getRoleMeta } from "@/lib/roles";
+
+interface UserResult {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface JudgeData {
+  id: string;
+  alias: string;
+  isHeadJudge: boolean;
+  inviteEmail: string | null;
+  inviteSentAt: string | null;
+  user: { id: string; name: string; email: string; role: string };
+  slots: { id: string; roundId: string; position: number }[];
+}
+
+interface Props {
+  eventId: string;
+}
+
+export function JudgeManager({ eventId }: Props) {
+  const [judges, setJudges] = useState<JudgeData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Form state
+  const [selectedUser, setSelectedUser] = useState<UserResult | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<UserResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [alias, setAlias] = useState("");
+  const [isHeadJudge, setIsHeadJudge] = useState(false);
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [activeInputMode, setActiveInputMode] = useState<"search" | "email">(
+    "search",
+  );
+
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const fetchJudges = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tools/dbt/events/${eventId}/judges`);
+      const data = await res.json();
+      setJudges(data.judges || []);
+    } catch {
+      /* silently ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    fetchJudges();
+  }, [fetchJudges]);
+
+  // Debounced user search
+  useEffect(() => {
+    if (!searchQuery.trim() || activeInputMode !== "search") {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    if (searchRef.current) clearTimeout(searchRef.current);
+    searchRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `/api/tools/dbt/users?q=${encodeURIComponent(searchQuery)}&limit=10`,
+        );
+        const data = await res.json();
+        setSearchResults(data.users || []);
+        setShowDropdown(true);
+      } catch {
+        /* silently ignore */
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (searchRef.current) clearTimeout(searchRef.current);
+    };
+  }, [searchQuery, activeInputMode]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectUser = (u: UserResult) => {
+    setSelectedUser(u);
+    setSearchQuery(u.name);
+    setShowDropdown(false);
+    // Auto-fill alias with first word of name
+    if (!alias) setAlias(u.name.split(" ")[0] || u.name);
+  };
+
+  const resetForm = () => {
+    setSelectedUser(null);
+    setSearchQuery("");
+    setSearchResults([]);
+    setAlias("");
+    setIsHeadJudge(false);
+    setManualEmail("");
+    setManualName("");
+    setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!alias.trim()) {
+      setError("Alias is required");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      let body: Record<string, unknown>;
+      if (activeInputMode === "search" && selectedUser) {
+        body = { userId: selectedUser.id, alias: alias.trim(), isHeadJudge };
+      } else if (activeInputMode === "email") {
+        if (!manualEmail.trim()) {
+          setError("Email is required");
+          setSubmitting(false);
+          return;
+        }
+        if (!manualName.trim()) {
+          setError("Name is required");
+          setSubmitting(false);
+          return;
+        }
+        body = {
+          email: manualEmail.trim(),
+          name: manualName.trim(),
+          alias: alias.trim(),
+          isHeadJudge,
+        };
+      } else {
+        setError("Please select a user or enter an email address");
+        setSubmitting(false);
+        return;
+      }
+
+      const res = await fetch(`/api/tools/dbt/events/${eventId}/judges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to assign judge");
+        return;
+      }
+      setSuccess(
+        activeInputMode === "email" &&
+          !judges.find((j) => j.inviteEmail === manualEmail)
+          ? `Invite sent to ${manualEmail} — they'll receive an account setup link.`
+          : `${data.judge.user.name} added as ${alias}.`,
+      );
+      resetForm();
+      await fetchJudges();
+    } catch {
+      setError("Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const removeJudge = async (judgeId: string) => {
+    if (!confirm("Remove this judge from the event?")) return;
+    try {
+      await fetch(`/api/tools/dbt/events/${eventId}/judges/${judgeId}`, {
+        method: "DELETE",
+      });
+      await fetchJudges();
+    } catch {
+      /* silently ignore */
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Assign judge form */}
+      <div className="border rounded-xl bg-white shadow-sm p-5">
+        <h3 className="font-semibold text-slate-800 mb-4">Assign Judge</h3>
+
+        {/* Mode tabs */}
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-4 w-fit">
+          <button
+            onClick={() => {
+              setActiveInputMode("search");
+              resetForm();
+            }}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+              activeInputMode === "search"
+                ? "bg-white shadow-sm text-slate-800"
+                : "text-slate-500",
+            )}
+          >
+            Search Existing Users
+          </button>
+          <button
+            onClick={() => {
+              setActiveInputMode("email");
+              resetForm();
+            }}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+              activeInputMode === "email"
+                ? "bg-white shadow-sm text-slate-800"
+                : "text-slate-500",
+            )}
+          >
+            Invite by Email
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {activeInputMode === "search" ? (
+            /* User search dropdown */
+            <div className="relative" ref={dropdownRef}>
+              <label className="text-xs font-medium text-slate-600 block mb-1">
+                Search users by name or email
+              </label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (selectedUser) setSelectedUser(null);
+                }}
+                onFocus={() =>
+                  searchResults.length > 0 && setShowDropdown(true)
+                }
+                placeholder="Type a name or email…"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-transparent"
+              />
+              {searching && (
+                <div className="absolute right-3 top-8.5">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                </div>
+              )}
+              {/* Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                  {searchResults.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => selectUser(u)}
+                      className="w-full px-3 py-2.5 flex items-center justify-between text-sm hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                    >
+                      <div className="text-left">
+                        <p className="font-medium text-slate-800">{u.name}</p>
+                        <p className="text-xs text-slate-400">{u.email}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-xs font-semibold",
+                          getRoleMeta(u.role).color,
+                        )}
+                      >
+                        {getRoleMeta(u.role).label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showDropdown &&
+                searchResults.length === 0 &&
+                searchQuery.length > 1 &&
+                !searching && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-400 text-center">
+                    No users found. Switch to &ldquo;Invite by Email&rdquo; to
+                    invite someone new.
+                  </div>
+                )}
+              {/* Selected user badge */}
+              {selectedUser && (
+                <div className="mt-2 flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {selectedUser.name}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {selectedUser.email}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs font-semibold",
+                      getRoleMeta(selectedUser.role).color,
+                    )}
+                  >
+                    {getRoleMeta(selectedUser.role).label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setSearchQuery("");
+                    }}
+                    className="text-slate-400 hover:text-red-400 text-sm ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Manual email input */
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">
+                  Email address *
+                </label>
+                <input
+                  type="email"
+                  value={manualEmail}
+                  onChange={(e) => setManualEmail(e.target.value)}
+                  placeholder="judge@example.com"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">
+                  Full name *
+                </label>
+                <input
+                  type="text"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  placeholder="Judge's full name"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+              <p className="text-xs text-slate-400 bg-amber-50 rounded-lg px-3 py-2">
+                This person will receive an email with a link to set up their
+                account. Their judge role will be linked automatically.
+              </p>
+            </div>
+          )}
+
+          {/* Alias + head judge */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">
+                Judge alias (display name) *
+              </label>
+              <input
+                type="text"
+                value={alias}
+                onChange={(e) => setAlias(e.target.value)}
+                placeholder="e.g. C-Doe, Kolia"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+              />
+            </div>
+            <div className="flex items-end pb-0.5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isHeadJudge}
+                  onChange={(e) => setIsHeadJudge(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-200 accent-amber-500"
+                />
+                <span className="text-sm text-slate-700">Head Judge</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Errors + success */}
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+          {success && (
+            <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
+              {success}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+          >
+            {submitting ? "Adding…" : "Assign Judge"}
+          </button>
+        </form>
+      </div>
+
+      {/* Current judges list */}
+      <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b bg-slate-50 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-800 text-sm">
+            Assigned Judges ({judges.length})
+          </h3>
+          <button
+            onClick={fetchJudges}
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
+            Refresh
+          </button>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          </div>
+        ) : judges.length === 0 ? (
+          <p className="text-center text-slate-400 text-sm py-8">
+            No judges assigned yet.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-50">
+            {judges.map((j) => (
+              <li
+                key={j.id}
+                className="px-5 py-3 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-800 text-sm">
+                      {j.alias}
+                    </span>
+                    {j.isHeadJudge && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">
+                        HEAD
+                      </span>
+                    )}
+                    {j.inviteEmail && !j.user.role.match(/JUDGE|ADMIN/) && (
+                      <span className="text-[10px] bg-blue-50 text-blue-600 rounded px-1.5 py-0.5">
+                        Invited
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {j.user.name} · {j.user.email}
+                    {j.inviteSentAt && (
+                      <span className="ml-1 text-slate-400">
+                        (invite sent{" "}
+                        {new Date(j.inviteSentAt).toLocaleDateString()})
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {j.slots.length} round slot{j.slots.length !== 1 ? "s" : ""}{" "}
+                    assigned
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeJudge(j.id)}
+                  className="shrink-0 text-xs text-slate-400 hover:text-red-500 border border-slate-200 rounded px-2 py-1 transition-colors"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -7,6 +7,7 @@ import {
   Sparkles,
   Link2,
   Download,
+  Gavel,
   type LucideIcon,
 } from "lucide-react";
 
@@ -83,6 +84,12 @@ export const featuredResources: NavItem[] = [
     icon: Download,
     description: "Access important documents",
   },
+  {
+    name: "Debate Hub",
+    href: "/tools/dbt",
+    icon: Gavel,
+    description: "Debate scoring & management",
+  },
 ];
 
 // Footer navigation sections
@@ -103,6 +110,13 @@ export const footerNavSections: NavSection[] = [
       { name: "Reference to BibTeX", href: "/tools/ref" },
       { name: "LaTeX to Word", href: "/tools/latex" },
       { name: "Word to LaTeX", href: "#" },
+    ],
+  },
+  {
+    title: "Debate",
+    items: [
+      { name: "Events", href: "/tools/dbt" },
+      { name: "Judge Dashboard", href: "/tools/dbt/judge" },
     ],
   },
   {

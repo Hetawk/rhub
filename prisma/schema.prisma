@@ -37,6 +37,55 @@ enum ConversionStatus {
     FAILED
 }
 
+// ==========================================
+// DEBATE SYSTEM ENUMS
+// ==========================================
+
+enum UserRole {
+    SUPER_ADMIN
+    ADMIN
+    JUDGE_ADMIN
+    HEAD_JUDGE
+    JUDGE
+    AUDIENCE
+}
+
+enum DebateEventStatus {
+    DRAFT
+    REGISTRATION
+    ACTIVE
+    COMPLETED
+    ARCHIVED
+}
+
+enum DebateRoundStatus {
+    SCHEDULED
+    LIVE
+    SCORING
+    COMPLETED
+    CANCELLED
+}
+
+enum TeamSide {
+    PRO
+    CON
+}
+
+enum SpeechType {
+    CONSTRUCTIVE
+    CROSS_FIRE_1
+    REBUTTAL
+    CROSS_FIRE_2
+    SUMMARY
+    GRAND_CROSS_FIRE
+    FINAL_FOCUS
+}
+
+enum GameType {
+    TEST
+    REAL
+}
+
 enum JournalType {
     ELSEVIER
     SPRINGER_NATURE
@@ -148,17 +197,27 @@ model DownloadableFile {
 }
 
 model User {
-    id        String    @id @default(cuid())
-    email     String    @unique
-    password  String // bcrypt hashed
-    name      String
-    role      String    @default("admin") // admin, superadmin
-    isActive  Boolean   @default(true)
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
-    sessions  Session[]
+    id             String    @id @default(cuid())
+    email          String    @unique
+    password       String? // bcrypt hashed (null for OAuth-only users)
+    name           String
+    role           UserRole  @default(AUDIENCE)
+    isActive       Boolean   @default(true)
+    emailVerified  Boolean   @default(false)
+    googleId       String?   @unique
+    verifyToken    String?
+    verifyTokenExp DateTime?
+    createdAt      DateTime  @default(now())
+    updatedAt      DateTime  @updatedAt
+    sessions       Session[]
+
+    // Debate relations
+    createdEvents DebateEvent[]      @relation("EventCreator")
+    judgeProfiles DebateJudge[]
+    teamMembers   DebateTeamMember[]
 
     @@index([email])
+    @@index([role])
 }
 
 model Session {
@@ -243,4 +302,190 @@ model ConversionTemplate {
 
     @@index([journalType])
     @@index([isDefault])
+}
+
+// ==========================================
+// DEBATE SYSTEM MODELS
+// ==========================================
+
+model DebateEvent {
+    id          String            @id @default(cuid())
+    slug        String            @unique
+    title       String // "Presidential Inter-City Winter Debate 2026"
+    subtitle    String? // "Academic Excellence Committee (AEC)"
+    organizer   String? // "Liberian Student Union in China (LSUIC)"
+    status      DebateEventStatus @default(DRAFT)
+    startDate   DateTime
+    endDate     DateTime?
+    location    String?
+    description String?           @db.Text
+    rules       String?           @db.Text
+    minScore    Float             @default(4)
+    maxScore    Float             @default(6)
+    createdBy   String?
+    createdAt   DateTime          @default(now())
+    updatedAt   DateTime          @updatedAt
+
+    creator User?         @relation("EventCreator", fields: [createdBy], references: [id])
+    rounds  DebateRound[]
+    teams   DebateTeam[]
+    judges  DebateJudge[]
+
+    @@index([slug])
+    @@index([status])
+    @@index([createdBy])
+}
+
+model DebateTeam {
+    id      String  @id @default(cuid())
+    eventId String
+    name    String // "Chengdu City", "Hangzhou City"
+    city    String?
+
+    event      DebateEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    roundTeams DebateRoundTeam[]
+    members    DebateTeamMember[]
+
+    @@index([eventId])
+}
+
+model DebateTeamMember {
+    id     String  @id @default(cuid())
+    teamId String
+    userId String?
+    name   String
+    role   String? // "1st Speaker", "2nd Speaker"
+
+    team DebateTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+    user User?      @relation(fields: [userId], references: [id])
+
+    @@index([teamId])
+    @@index([userId])
+}
+
+model DebateRound {
+    id        String            @id @default(cuid())
+    eventId   String
+    roundNum  Int // 1, 2, 3...
+    title     String? // "Game Day 1 (Game 2)"
+    topic     String // "Drug Addicts: Do they need help?"
+    status    DebateRoundStatus @default(SCHEDULED)
+    gameType  GameType          @default(REAL)
+    startTime DateTime?
+    endTime   DateTime?
+    venue     String?
+
+    // Timer settings
+    timerEnabled      Boolean @default(true)
+    speechDurationSec Int     @default(240) // default 4 min per speech
+    prepTimeSec       Int     @default(60) // prep time between speeches
+
+    // Audience votes (entered by head judge, not self-serve)
+    audienceProVotes Int @default(0)
+    audienceConVotes Int @default(0)
+
+    // Lock: once COMPLETED, no more edits
+    completedAt DateTime?
+    completedBy String? // userId who marked complete
+
+    // Score lock deadline (set by ADMIN+): after this time judges cannot modify scores
+    scoreLockDeadline DateTime?
+    scoreLockSetBy    String? // userId who set the lock
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    event      DebateEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    roundTeams DebateRoundTeam[]
+    judgeSlots JudgeSlot[]
+
+    @@index([eventId])
+    @@index([status])
+    @@index([gameType])
+}
+
+model DebateRoundTeam {
+    id          String   @id @default(cuid())
+    roundId     String
+    teamId      String
+    side        TeamSide // PRO or CON for this round
+    speaksFirst Boolean  @default(false)
+
+    round  DebateRound   @relation(fields: [roundId], references: [id], onDelete: Cascade)
+    team   DebateTeam    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+    scores SpeechScore[]
+
+    @@unique([roundId, teamId])
+    @@unique([roundId, side])
+    @@index([roundId])
+    @@index([teamId])
+}
+
+model DebateJudge {
+    id           String    @id @default(cuid())
+    eventId      String
+    userId       String
+    alias        String // "C-Doe", "Kolia", "Omario"
+    isHeadJudge  Boolean   @default(false)
+    inviteToken  String?   @unique // for pending account setup invites
+    inviteEmail  String? // original invite email (before account created)
+    inviteSentAt DateTime? // when invite was sent
+
+    event DebateEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    user  User        @relation(fields: [userId], references: [id])
+    slots JudgeSlot[]
+
+    @@unique([eventId, userId])
+    @@index([eventId])
+    @@index([userId])
+}
+
+model JudgeSlot {
+    id       String @id @default(cuid())
+    roundId  String
+    judgeId  String
+    position Int // 1=J1, 2=J2, 3=J3
+
+    round  DebateRound   @relation(fields: [roundId], references: [id], onDelete: Cascade)
+    judge  DebateJudge   @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+    scores SpeechScore[]
+
+    @@unique([roundId, judgeId])
+    @@unique([roundId, position])
+    @@index([roundId])
+    @@index([judgeId])
+}
+
+model SpeechScore {
+    id          String     @id @default(cuid())
+    slotId      String
+    roundTeamId String
+    speechType  SpeechType
+    totalScore  Float? // Auto-calculated sum of criteria (20-30)
+    comment     String?    @db.Text
+    isLocked    Boolean    @default(false)
+    lockedAt    DateTime?
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+
+    slot      JudgeSlot       @relation(fields: [slotId], references: [id], onDelete: Cascade)
+    roundTeam DebateRoundTeam @relation(fields: [roundTeamId], references: [id], onDelete: Cascade)
+    criteria  CriteriaScore[]
+
+    @@unique([slotId, roundTeamId, speechType])
+    @@index([slotId])
+    @@index([roundTeamId])
+    @@index([speechType])
+}
+
+model CriteriaScore {
+    id            String @id @default(cuid())
+    speechScoreId String
+    criteriaKey   String // "clarity_of_position", "argument_structure", etc.
+    score         Float // 4.0 to 6.0
+
+    speechScore SpeechScore @relation(fields: [speechScoreId], references: [id], onDelete: Cascade)
+
+    @@unique([speechScoreId, criteriaKey])
+    @@index([speechScoreId])
 }

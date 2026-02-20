@@ -6,6 +6,7 @@ import {
   Video,
   FileCode,
   FileOutput,
+  Gavel,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -24,8 +25,16 @@ export interface ToolConfig {
     | "docs"
     | "latex"
     | "word"
-    | "doc";
-  subcategory?: "reference" | "latex" | "word" | "image" | "video" | "document";
+    | "doc"
+    | "dbt";
+  subcategory?:
+    | "reference"
+    | "latex"
+    | "word"
+    | "image"
+    | "video"
+    | "document"
+    | "debate";
   status: "live" | "beta" | "coming-soon";
   featured: boolean;
   icon: LucideIcon;
@@ -198,6 +207,32 @@ export const TOOLS: ToolConfig[] = [
     },
   },
 
+  // Debate Hub
+  {
+    slug: "dbt",
+    title: "Debate Hub",
+    tagline: "Real-time debate scoring & management",
+    summary:
+      "Full debate event pipeline with criteria-based scoring sheets, multi-judge support, audience voting, and live scoreboards.",
+    category: "utility",
+    group: "dbt",
+    subcategory: "debate",
+    status: "live",
+    featured: true,
+    icon: Gavel,
+    path: "/tools/dbt",
+    metadata: {
+      features: [
+        "Criteria-based scoring (4-6 per criteria)",
+        "7 speech types with 5 criteria each",
+        "Multi-judge support (J1, J2, J3)",
+        "Auto-lock scores after 15 seconds",
+        "Audience voting",
+        "Real-time scoreboard",
+      ],
+    },
+  },
+
   // Document Converters
   {
     slug: "doc",
@@ -253,6 +288,6 @@ export function getLiveTools(): ToolConfig[] {
 
 export function getConverterTools(): ToolConfig[] {
   return TOOLS.filter(
-    (tool) => tool.category === "converter" && tool.status === "live"
+    (tool) => tool.category === "converter" && tool.status === "live",
   );
 }

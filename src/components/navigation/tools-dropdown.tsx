@@ -172,6 +172,27 @@ export function ToolsDropdown() {
                   </div>
                 </Link>
               ))}
+
+              {/* Debate Hub */}
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredGroup("dbt")}
+              >
+                <Link
+                  href="/tools/dbt"
+                  className="flex items-center justify-between rounded-md px-3 py-2 transition-colors hover:bg-accent hover:text-accent-foreground border-2 border-transparent hover:border-gold/20"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-foreground">
+                      Debate Hub
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Scoring, judging &amp; management
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
 
             {/* Right Column - Sub-menus */}
@@ -256,6 +277,34 @@ export function ToolsDropdown() {
                     className="block rounded-md px-3 py-2 text-sm font-medium text-gold hover:bg-accent border-2 border-transparent hover:border-gold/20"
                   >
                     View all document tools →
+                  </Link>
+                </div>
+              )}
+
+              {hoveredGroup === "dbt" && (
+                <div className="space-y-1 animate-in fade-in-0 slide-in-from-left-2">
+                  <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                    Debate Hub
+                  </div>
+                  <Link
+                    href="/tools/dbt"
+                    className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground border-2 border-transparent hover:border-gold/20"
+                  >
+                    <div className="font-medium text-foreground">All Events</div>
+                    <div className="text-xs text-muted-foreground">Browse debate events</div>
+                  </Link>
+                  <Link
+                    href="/tools/dbt/judge"
+                    className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground border-2 border-transparent hover:border-gold/20"
+                  >
+                    <div className="font-medium text-foreground">Judge Dashboard</div>
+                    <div className="text-xs text-muted-foreground">Score & manage rounds</div>
+                  </Link>
+                  <Link
+                    href="/login?redirect=/tools/dbt"
+                    className="block rounded-md px-3 py-2 text-sm font-medium text-gold hover:bg-accent border-2 border-transparent hover:border-gold/20"
+                  >
+                    Sign in as Judge →
                   </Link>
                 </div>
               )}

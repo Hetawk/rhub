@@ -305,13 +305,178 @@ async function main() {
       email: "admin@ekddigital.com",
       password: hashedPassword,
       name: "Admin User",
-      role: "superadmin",
+      role: "SUPER_ADMIN",
       isActive: true,
+      emailVerified: true,
     },
   });
 
   console.log("✅ Created admin user:", adminUser.email);
   console.log("   Password: admin123");
+
+  // ---- Debate System Seed Data ----
+  console.log("📣 Seeding debate system...");
+
+  // Create admin judge test user (admin.judge@lsuic.org)
+  const adminJudgePassword = await bcrypt.hash("judge123", 10);
+  const adminJudge = await prisma.user.create({
+    data: {
+      email: "admin.judge@lsuic.org",
+      password: adminJudgePassword,
+      name: "Admin Judge (LSUIC)",
+      role: "HEAD_JUDGE",
+      isActive: true,
+      emailVerified: true,
+    },
+  });
+  console.log("✅ Created admin judge user:", adminJudge.email);
+  console.log("   Password: judge123");
+
+  // Create judge users
+  const judgePassword = await bcrypt.hash("judge123", 10);
+  const [judge1, judge2, judge3] = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: "cdoe@example.com",
+        password: judgePassword,
+        name: "C-Doe Johnson",
+        role: "JUDGE",
+        isActive: true,
+        emailVerified: true,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "kolia@example.com",
+        password: judgePassword,
+        name: "Kolia Smith",
+        role: "JUDGE",
+        isActive: true,
+        emailVerified: true,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "omario@example.com",
+        password: judgePassword,
+        name: "Omario Williams",
+        role: "JUDGE",
+        isActive: true,
+        emailVerified: true,
+      },
+    }),
+  ]);
+
+  // Create debate event
+  const event = await prisma.debateEvent.create({
+    data: {
+      slug: "lsuic-winter-debate-2026",
+      title: "Presidential Inter-City Winter Debate 2026",
+      subtitle: "Academic Excellence Committee (AEC)",
+      organizer: "Liberian Student Union in China (LSUIC)",
+      status: "ACTIVE",
+      startDate: new Date("2026-02-21T20:00:00"),
+      location: "China",
+      description:
+        "Inter-city debate competition organized by LSUIC Academic Excellence Committee.",
+      minScore: 4,
+      maxScore: 6,
+      createdBy: adminUser.id,
+    },
+  });
+
+  // Create teams
+  const [chengduTeam, hangzhouTeam] = await Promise.all([
+    prisma.debateTeam.create({
+      data: {
+        eventId: event.id,
+        name: "Chengdu City",
+        city: "Chengdu",
+        members: {
+          create: [
+            { name: "Speaker 1 (Chengdu)", role: "1st Speaker" },
+            { name: "Speaker 2 (Chengdu)", role: "2nd Speaker" },
+          ],
+        },
+      },
+    }),
+    prisma.debateTeam.create({
+      data: {
+        eventId: event.id,
+        name: "Hangzhou City",
+        city: "Hangzhou",
+        members: {
+          create: [
+            { name: "Speaker 1 (Hangzhou)", role: "1st Speaker" },
+            { name: "Speaker 2 (Hangzhou)", role: "2nd Speaker" },
+          ],
+        },
+      },
+    }),
+  ]);
+
+  // Assign judges to event
+  // Assign admin judge as head judge
+  const djAdmin = await prisma.debateJudge.create({
+    data: {
+      eventId: event.id,
+      userId: adminJudge.id,
+      alias: "Head Judge",
+      isHeadJudge: true,
+    },
+  });
+
+  const [dj1, dj2, dj3] = await Promise.all([
+    prisma.debateJudge.create({
+      data: { eventId: event.id, userId: judge1.id, alias: "C-Doe" },
+    }),
+    prisma.debateJudge.create({
+      data: { eventId: event.id, userId: judge2.id, alias: "Kolia" },
+    }),
+    prisma.debateJudge.create({
+      data: { eventId: event.id, userId: judge3.id, alias: "Omario" },
+    }),
+  ]);
+
+  // Create round
+  const round = await prisma.debateRound.create({
+    data: {
+      eventId: event.id,
+      roundNum: 1,
+      title: "Game Day 1 (Game 2)",
+      topic: "Drug Addicts: Do they need help?",
+      status: "LIVE",
+      gameType: "REAL",
+      timerEnabled: true,
+      speechDurationSec: 240,
+      prepTimeSec: 60,
+      roundTeams: {
+        create: [
+          { teamId: chengduTeam.id, side: "CON", speaksFirst: true },
+          { teamId: hangzhouTeam.id, side: "PRO", speaksFirst: false },
+        ],
+      },
+      judgeSlots: {
+        create: [
+          { judgeId: dj1.id, position: 1 },
+          { judgeId: dj2.id, position: 2 },
+          { judgeId: dj3.id, position: 3 },
+          { judgeId: djAdmin.id, position: 4 },
+        ],
+      },
+    },
+  });
+
+  console.log("✅ Created debate event:", event.title);
+  console.log("   Slug:", event.slug);
+  console.log("   Teams:", chengduTeam.name, "vs", hangzhouTeam.name);
+  console.log(
+    "   Judges:",
+    "C-Doe (J1), Kolia (J2), Omario (J3), Head Judge (J4)",
+  );
+  console.log("   Head Judge: admin.judge@lsuic.org (password: judge123)");
+  console.log("   Judge login password: judge123");
+
   console.log("🎉 Database seeding complete!");
 }
 
