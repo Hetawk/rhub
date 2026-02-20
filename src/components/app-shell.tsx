@@ -22,9 +22,9 @@ export function AppShell({ user, children }: AppShellProps) {
   return (
     <>
       <AppMobileNav user={user} />
-      <div className="flex gap-8 items-start">
+      <div className="flex items-start">
         <AppSidebar user={user} />
-        <div className="flex-1 min-w-0">{children}</div>
+        <div className="flex-1 min-w-0 pl-8">{children}</div>
       </div>
     </>
   );

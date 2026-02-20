@@ -118,6 +118,22 @@ export function DebateShell({ eventSlug }: Props) {
   const [lockDeadline, setLockDeadline] = useState("");
   const [settingLock, setSettingLock] = useState(false);
 
+  // Event setup panel state (JUDGE_ADMIN+)
+  const [setupSection, setSetupSection] = useState<
+    "judges" | "teams" | "rounds"
+  >("judges");
+  const [teamName, setTeamName] = useState("");
+  const [teamCity, setTeamCity] = useState("");
+  const [addingTeam, setAddingTeam] = useState(false);
+  const [newRoundTopic, setNewRoundTopic] = useState("");
+  const [newRoundProTeam, setNewRoundProTeam] = useState("");
+  const [newRoundConTeam, setNewRoundConTeam] = useState("");
+  const [newRoundGameType, setNewRoundGameType] = useState<"TEST" | "REAL">(
+    "REAL",
+  );
+  const [newRoundTitle, setNewRoundTitle] = useState("");
+  const [addingRound, setAddingRound] = useState(false);
+
   // Check auth
   useEffect(() => {
     fetch("/api/auth/me")
@@ -252,12 +268,74 @@ export function DebateShell({ eventSlug }: Props) {
     );
   };
 
+  // Add team handler
+  const addTeam = async () => {
+    if (!teamName.trim() || !event) return;
+    setAddingTeam(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/events/${event.id}/teams`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: teamName.trim(),
+          city: teamCity.trim() || undefined,
+        }),
+      });
+      if (res.ok && eventSlug) {
+        setTeamName("");
+        setTeamCity("");
+        await fetchEvent(eventSlug);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to add team");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setAddingTeam(false);
+    }
+  };
+
+  // Create round handler
+  const createRound = async () => {
+    if (!event || !newRoundTopic.trim() || !newRoundProTeam || !newRoundConTeam)
+      return;
+    setAddingRound(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/events/${event.id}/rounds`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: newRoundTopic.trim(),
+          proTeamId: newRoundProTeam,
+          conTeamId: newRoundConTeam,
+          gameType: newRoundGameType,
+          title: newRoundTitle.trim() || undefined,
+        }),
+      });
+      if (res.ok && eventSlug) {
+        setNewRoundTopic("");
+        setNewRoundProTeam("");
+        setNewRoundConTeam("");
+        setNewRoundTitle("");
+        await fetchEvent(eventSlug);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to create round");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setAddingRound(false);
+    }
+  };
+
   // ---- Render ----
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-ekd-gold border-t-transparent" />
       </div>
     );
   }
@@ -266,34 +344,47 @@ export function DebateShell({ eventSlug }: Props) {
   if (!eventSlug && !event) {
     return (
       <div className="space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800">Debate Events</h1>
-          <p className="text-slate-500 mt-1">
-            Select an event to view or participate
-          </p>
-          {eventsTotal > 0 && (
-            <p className="text-xs text-slate-400 mt-0.5">
-              {eventsTotal} event{eventsTotal !== 1 ? "s" : ""} total
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Debate Events
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Select an event to view or participate
             </p>
+          </div>
+          {eventsTotal > 0 && (
+            <span className="text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-lg">
+              {eventsTotal} event{eventsTotal !== 1 ? "s" : ""} total
+            </span>
           )}
         </div>
+
         {events.length === 0 ? (
-          <p className="text-center text-slate-400 py-12">No events yet.</p>
+          <div className="rounded-xl border border-border bg-card text-center py-16 px-6">
+            <p className="text-base font-medium text-foreground">
+              No events yet.
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Events will appear here once they are created.
+            </p>
+          </div>
         ) : (
           <>
-            <div className="grid gap-4 max-w-2xl mx-auto">
+            <div className="grid gap-3 sm:grid-cols-2">
               {events.map((evt) => (
                 <a
                   key={evt.id}
                   href={`/tools/dbt/${evt.slug}`}
-                  className="block p-4 rounded-xl border bg-white hover:shadow-md transition-shadow"
+                  className="group block p-4 rounded-xl border border-border bg-card hover:border-ekd-gold/40 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-slate-800 flex-1">
+                    <h3 className="font-semibold text-foreground group-hover:text-ekd-gold transition-colors flex-1">
                       {evt.title}
                     </h3>
                     {evt.gameType === "TEST" && (
-                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded">
+                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-ekd-gold/15 text-ekd-dark-brown rounded">
                         TEST
                       </span>
                     )}
@@ -302,10 +393,10 @@ export function DebateShell({ eventSlug }: Props) {
                     className={cn(
                       "inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium",
                       evt.status === "ACTIVE"
-                        ? "bg-emerald-50 text-emerald-700"
+                        ? "bg-emerald-500/10 text-emerald-600"
                         : evt.status === "COMPLETED"
-                          ? "bg-slate-100 text-slate-500"
-                          : "bg-amber-50 text-amber-700",
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-ekd-gold/10 text-ekd-dark-brown",
                     )}
                   >
                     {evt.status}
@@ -320,11 +411,11 @@ export function DebateShell({ eventSlug }: Props) {
                 <button
                   onClick={() => setEventsPage((p) => Math.max(1, p - 1))}
                   disabled={eventsPage <= 1}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                  className="px-3 py-1.5 border border-border rounded-lg text-sm text-foreground hover:bg-accent disabled:opacity-40 transition-colors"
                 >
                   ← Prev
                 </button>
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-muted-foreground">
                   Page {eventsPage} of {eventsTotalPages}
                 </span>
                 <button
@@ -332,7 +423,7 @@ export function DebateShell({ eventSlug }: Props) {
                     setEventsPage((p) => Math.min(eventsTotalPages, p + 1))
                   }
                   disabled={eventsPage >= eventsTotalPages}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                  className="px-3 py-1.5 border border-border rounded-lg text-sm text-foreground hover:bg-accent disabled:opacity-40 transition-colors"
                 >
                   Next →
                 </button>
@@ -345,7 +436,11 @@ export function DebateShell({ eventSlug }: Props) {
   }
 
   if (!event) {
-    return <p className="text-center text-slate-400 py-12">Event not found.</p>;
+    return (
+      <p className="text-center text-muted-foreground py-12">
+        Event not found.
+      </p>
+    );
   }
 
   // Build available tabs
@@ -353,18 +448,17 @@ export function DebateShell({ eventSlug }: Props) {
   if (selectedRound?.timerEnabled) tabs.push("timer");
   tabs.push("voting");
   if (isAdmin || canEditVotes) tabs.push("export");
-  if (isJudgeAdmin) tabs.push("manage");
 
   return (
     <div className="space-y-6">
       {/* Event header */}
       <div className="text-center space-y-1">
         {event.organizer && (
-          <p className="text-sm font-semibold text-slate-500">
+          <p className="text-sm font-semibold text-muted-foreground">
             {event.organizer}
           </p>
         )}
-        <h1 className="text-xl md:text-2xl font-bold text-slate-800">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">
           {event.title}
         </h1>
         {event.subtitle && (
@@ -386,12 +480,15 @@ export function DebateShell({ eventSlug }: Props) {
       )}
 
       {user && (
-        <div className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-4 py-2 border">
-          <span className="text-slate-500">
-            Signed in as <strong className="text-slate-700">{user.name}</strong>
-            <span className="ml-2 text-xs text-slate-400">({user.role})</span>
+        <div className="flex items-center justify-between text-sm bg-muted/40 rounded-lg px-4 py-2 border">
+          <span className="text-muted-foreground">
+            Signed in as{" "}
+            <strong className="text-foreground">{user.name}</strong>
+            <span className="ml-2 text-xs text-muted-foreground">
+              ({user.role})
+            </span>
             {isJudge && (
-              <span className="ml-1 text-amber-600 font-medium">(Judge)</span>
+              <span className="ml-1 text-ekd-gold font-medium">(Judge)</span>
             )}
             {canEditVotes && (
               <span className="ml-1 text-purple-600 font-medium">
@@ -404,10 +501,242 @@ export function DebateShell({ eventSlug }: Props) {
               await fetch("/api/auth/logout", { method: "POST" });
               setUser(null);
             }}
-            className="text-slate-400 hover:text-red-500 text-xs"
+            className="text-muted-foreground hover:text-red-500 text-xs"
           >
             Sign out
           </button>
+        </div>
+      )}
+
+      {/* Event Setup Panel — always visible for JUDGE_ADMIN+ */}
+      {isJudgeAdmin && (
+        <div className="border border-border rounded-xl bg-card shadow-sm overflow-hidden">
+          {/* Panel header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+            <span className="text-sm font-semibold text-foreground">
+              Event Management
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded bg-ekd-gold/15 text-ekd-dark-brown font-medium">
+              Admin
+            </span>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className="flex border-b border-border">
+            {(["judges", "teams", "rounds"] as const).map((section) => (
+              <button
+                key={section}
+                onClick={() => setSetupSection(section)}
+                className={cn(
+                  "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+                  setupSection === section
+                    ? "text-ekd-gold border-ekd-gold"
+                    : "text-muted-foreground border-transparent hover:text-foreground",
+                )}
+              >
+                {section === "judges"
+                  ? `Judges (${event.judges.length})`
+                  : section === "teams"
+                    ? `Teams (${event.teams.length})`
+                    : "Add Round"}
+              </button>
+            ))}
+          </div>
+
+          {/* Panel content */}
+          <div className="p-4">
+            {/* Judges section */}
+            {setupSection === "judges" && <JudgeManager eventId={event.id} />}
+
+            {/* Teams section */}
+            {setupSection === "teams" && (
+              <div className="space-y-4">
+                {event.teams.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Current Teams
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {event.teams.map((t) => (
+                        <div
+                          key={t.id}
+                          className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg text-sm"
+                        >
+                          <span className="font-medium text-foreground">
+                            {t.name}
+                          </span>
+                          {t.city && (
+                            <span className="text-muted-foreground">
+                              · {t.city}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No teams yet. Add teams below, then create a round.
+                  </p>
+                )}
+                <div className="border-t border-border pt-4 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Add Team
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      placeholder="Team name *"
+                      value={teamName}
+                      onChange={(e) => setTeamName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addTeam()}
+                      className="flex-1 text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-background"
+                    />
+                    <input
+                      type="text"
+                      placeholder="City / school (optional)"
+                      value={teamCity}
+                      onChange={(e) => setTeamCity(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addTeam()}
+                      className="flex-1 text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-background"
+                    />
+                    <button
+                      onClick={addTeam}
+                      disabled={addingTeam || !teamName.trim()}
+                      className="px-4 py-2 bg-ekd-gold hover:bg-ekd-light-gold text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {addingTeam ? "Adding…" : "+ Add Team"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add Round section */}
+            {setupSection === "rounds" && (
+              <div className="space-y-4">
+                {event.teams.length < 2 ? (
+                  <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-4">
+                    You need at least 2 teams to create a round.{" "}
+                    <button
+                      onClick={() => setSetupSection("teams")}
+                      className="text-ekd-gold hover:underline font-medium"
+                    >
+                      Go to Teams →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                          Resolution / Topic *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. This house believes that…"
+                          value={newRoundTopic}
+                          onChange={(e) => setNewRoundTopic(e.target.value)}
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-background"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                          Round title (optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Round 1 — Finals"
+                          value={newRoundTitle}
+                          onChange={(e) => setNewRoundTitle(e.target.value)}
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-background"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                          Game type
+                        </label>
+                        <select
+                          value={newRoundGameType}
+                          onChange={(e) =>
+                            setNewRoundGameType(
+                              e.target.value as "TEST" | "REAL",
+                            )
+                          }
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-card"
+                        >
+                          <option value="REAL">REAL (Official)</option>
+                          <option value="TEST">TEST (Practice)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                          PRO side team *
+                        </label>
+                        <select
+                          value={newRoundProTeam}
+                          onChange={(e) => setNewRoundProTeam(e.target.value)}
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-card"
+                        >
+                          <option value="">Select team…</option>
+                          {event.teams
+                            .filter((t) => t.id !== newRoundConTeam)
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                          CON side team *
+                        </label>
+                        <select
+                          value={newRoundConTeam}
+                          onChange={(e) => setNewRoundConTeam(e.target.value)}
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 bg-card"
+                        >
+                          <option value="">Select team…</option>
+                          {event.teams
+                            .filter((t) => t.id !== newRoundProTeam)
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      onClick={createRound}
+                      disabled={
+                        addingRound ||
+                        !newRoundTopic.trim() ||
+                        !newRoundProTeam ||
+                        !newRoundConTeam
+                      }
+                      className="px-5 py-2 bg-ekd-gold hover:bg-ekd-light-gold text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {addingRound ? "Creating…" : "Create Round"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* No rounds empty state for non-admin visitors */}
+      {!isJudgeAdmin && event.rounds.length === 0 && (
+        <div className="rounded-xl border border-border bg-card text-center py-12 px-6">
+          <p className="text-base font-medium text-foreground">
+            No rounds yet.
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Check back once the organizer has set up the rounds.
+          </p>
         </div>
       )}
 
@@ -422,18 +751,18 @@ export function DebateShell({ eventSlug }: Props) {
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-sm border transition-colors flex items-center gap-1.5 whitespace-nowrap",
                   selectedRoundId === round.id
-                    ? "bg-amber-500 text-white border-amber-500"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-amber-300",
+                    ? "bg-ekd-gold text-ekd-dark-brown border-ekd-gold"
+                    : "bg-card text-foreground border-border hover:border-ekd-gold/40",
                 )}
               >
                 {round.title || `Round ${round.roundNum}`}
                 {round.gameType === "TEST" && (
-                  <span className="text-[9px] px-1 bg-amber-200 text-amber-800 rounded">
+                  <span className="text-[9px] px-1 bg-ekd-gold/20 text-ekd-dark-brown rounded">
                     T
                   </span>
                 )}
                 {round.completedAt && (
-                  <span className="text-[9px] px-1 bg-slate-200 text-slate-500 rounded">
+                  <span className="text-[9px] px-1 bg-muted text-muted-foreground rounded">
                     Done
                   </span>
                 )}
@@ -446,7 +775,7 @@ export function DebateShell({ eventSlug }: Props) {
       {/* Round info */}
       {selectedRound && (
         <div className="text-center space-y-1">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {selectedRound.title || `Round ${selectedRound.roundNum}`}:{" "}
             <em>&ldquo;{selectedRound.topic}&rdquo;</em>
           </p>
@@ -455,7 +784,7 @@ export function DebateShell({ eventSlug }: Props) {
               className={cn(
                 "px-2 py-0.5 rounded font-medium",
                 selectedRound.gameType === "TEST"
-                  ? "bg-amber-100 text-amber-700"
+                  ? "bg-ekd-gold/15 text-ekd-dark-brown"
                   : "bg-emerald-100 text-emerald-700",
               )}
             >
@@ -465,7 +794,7 @@ export function DebateShell({ eventSlug }: Props) {
               className={cn(
                 "px-2 py-0.5 rounded font-medium",
                 isCompleted
-                  ? "bg-slate-200 text-slate-500"
+                  ? "bg-muted text-muted-foreground"
                   : selectedRound.status === "LIVE"
                     ? "bg-green-100 text-green-700"
                     : "bg-blue-100 text-blue-700",
@@ -481,7 +810,7 @@ export function DebateShell({ eventSlug }: Props) {
       {selectedRound && (
         <>
           <div className="overflow-x-auto pb-1 -mx-2 px-2">
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-1 min-w-max mx-auto">
+            <div className="flex gap-1 bg-muted rounded-lg p-1 min-w-max mx-auto">
               {tabs.map((t) => (
                 <button
                   key={t}
@@ -489,8 +818,8 @@ export function DebateShell({ eventSlug }: Props) {
                   className={cn(
                     "px-3 py-2 rounded-md text-sm font-medium transition-colors capitalize whitespace-nowrap",
                     tab === t
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700",
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {t}
@@ -501,7 +830,7 @@ export function DebateShell({ eventSlug }: Props) {
 
           {/* Completed banner */}
           {isCompleted && (
-            <div className="text-center text-sm text-slate-500 bg-slate-50 rounded-lg py-2 border">
+            <div className="text-center text-sm text-muted-foreground bg-muted/40 rounded-lg py-2 border">
               This round is <strong>completed</strong>. No further edits
               allowed.
             </div>
@@ -517,14 +846,14 @@ export function DebateShell({ eventSlug }: Props) {
               {/* View mode toggle + score lock controls */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 {/* View mode toggle */}
-                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
                   <button
                     onClick={() => setViewMode("cell")}
                     className={cn(
                       "px-3 py-1 rounded-md text-xs font-medium transition-colors",
                       viewMode === "cell"
-                        ? "bg-white shadow-sm text-slate-800"
-                        : "text-slate-500",
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground",
                     )}
                   >
                     Cell View
@@ -534,8 +863,8 @@ export function DebateShell({ eventSlug }: Props) {
                     className={cn(
                       "px-3 py-1 rounded-md text-xs font-medium transition-colors",
                       viewMode === "table"
-                        ? "bg-white shadow-sm text-slate-800"
-                        : "text-slate-500",
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground",
                     )}
                   >
                     Table View
@@ -567,12 +896,12 @@ export function DebateShell({ eventSlug }: Props) {
                           type="datetime-local"
                           value={lockDeadline}
                           onChange={(e) => setLockDeadline(e.target.value)}
-                          className="text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-300"
+                          className="text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40"
                         />
                         <button
                           onClick={() => setScoreLock(false)}
                           disabled={settingLock || !lockDeadline}
-                          className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded transition-colors disabled:opacity-50"
+                          className="text-xs px-3 py-1 bg-ekd-gold hover:bg-ekd-light-gold text-white rounded transition-colors disabled:opacity-50"
                         >
                           {settingLock ? "Setting…" : "Set Lock"}
                         </button>
@@ -628,9 +957,9 @@ export function DebateShell({ eventSlug }: Props) {
           {tab === "export" && (
             <div className="space-y-4 max-w-xl mx-auto">
               {/* Data export */}
-              <div className="border rounded-xl bg-white shadow-sm p-5 space-y-3">
-                <h3 className="font-semibold text-slate-800">Export Data</h3>
-                <p className="text-sm text-slate-500">
+              <div className="border rounded-xl bg-card shadow-sm p-5 space-y-3">
+                <h3 className="font-semibold text-foreground">Export Data</h3>
+                <p className="text-sm text-muted-foreground">
                   Download raw scoring data for this round.
                 </p>
                 <div className="flex flex-wrap gap-3">
@@ -650,9 +979,9 @@ export function DebateShell({ eventSlug }: Props) {
               </div>
 
               {/* Results image download */}
-              <div className="border rounded-xl bg-white shadow-sm p-5 space-y-3">
-                <h3 className="font-semibold text-slate-800">Results Image</h3>
-                <p className="text-sm text-slate-500">
+              <div className="border rounded-xl bg-card shadow-sm p-5 space-y-3">
+                <h3 className="font-semibold text-foreground">Results Image</h3>
+                <p className="text-sm text-muted-foreground">
                   Download a beautiful results card as a PNG image.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -660,7 +989,7 @@ export function DebateShell({ eventSlug }: Props) {
                     href={`/api/tools/dbt/events/${event.slug}/results-image?round=${selectedRound.id}&logos=both`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors text-center"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-ekd-gold hover:bg-ekd-light-gold text-white rounded-lg text-sm font-medium transition-colors text-center"
                   >
                     <span>🏆</span> With Logos (AEC + LSUIC)
                   </a>
@@ -668,7 +997,7 @@ export function DebateShell({ eventSlug }: Props) {
                     href={`/api/tools/dbt/events/${event.slug}/results-image?round=${selectedRound.id}&logos=none`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors text-center"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-ekd-dark-brown hover:bg-ekd-charcoal text-white rounded-lg text-sm font-medium transition-colors text-center"
                   >
                     <span>📋</span> Without Logos
                   </a>
@@ -676,7 +1005,7 @@ export function DebateShell({ eventSlug }: Props) {
                     href={`/api/tools/dbt/events/${event.slug}/results-image?round=${selectedRound.id}&logos=aec`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors text-center"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted text-foreground rounded-lg text-sm font-medium transition-colors text-center"
                   >
                     AEC Logo Only
                   </a>
@@ -684,14 +1013,14 @@ export function DebateShell({ eventSlug }: Props) {
                     href={`/api/tools/dbt/events/${event.slug}/results-image?round=${selectedRound.id}&logos=lsuic`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors text-center"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted text-foreground rounded-lg text-sm font-medium transition-colors text-center"
                   >
                     LSUIC Logo Only
                   </a>
                 </div>
                 {/* Custom logo option */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <p className="text-xs text-slate-400 font-medium">
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground font-medium">
                     Custom organization logo
                   </p>
                   <div className="flex gap-2">
@@ -699,7 +1028,7 @@ export function DebateShell({ eventSlug }: Props) {
                       type="url"
                       id="custom-logo-url"
                       placeholder="https://example.com/logo.png"
-                      className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="flex-1 text-xs border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ekd-gold/40"
                     />
                     <button
                       onClick={() => {
@@ -713,29 +1042,25 @@ export function DebateShell({ eventSlug }: Props) {
                           "_blank",
                         );
                       }}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
+                      className="px-3 py-2 bg-ekd-dark-brown hover:bg-ekd-charcoal text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
                     >
                       Download
                     </button>
                   </div>
                 </div>
                 {/* Full event (all rounds) */}
-                <div className="pt-2 border-t border-slate-100">
+                <div className="pt-2 border-t border-border">
                   <a
                     href={`/api/tools/dbt/events/${event.slug}/results-image?logos=both`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-amber-600 hover:underline"
+                    className="text-xs text-ekd-gold hover:underline"
                   >
                     Download results for all rounds in this event
                   </a>
                 </div>
               </div>
             </div>
-          )}
-
-          {tab === "manage" && isJudgeAdmin && (
-            <JudgeManager eventId={event.id} />
           )}
 
           {/* Complete round button (head judge / admin only) */}
@@ -750,7 +1075,7 @@ export function DebateShell({ eventSlug }: Props) {
                   ? "Completing..."
                   : "Complete Round & Lock All Scores"}
               </button>
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 This action is permanent. All scores will be locked.
               </p>
             </div>

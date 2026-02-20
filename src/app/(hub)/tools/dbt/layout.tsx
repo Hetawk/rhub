@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DbtShellWrapper } from "@/components/tools/dbt/dbt-shell-wrapper";
 
 export const metadata: Metadata = {
   title: "Debate Hub | EKD Digital Resource Hub",
@@ -11,5 +12,5 @@ export default function DebateLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <DbtShellWrapper>{children}</DbtShellWrapper>;
 }

@@ -8,7 +8,7 @@ export default async function DebateEventPage({ params }: PageProps) {
   const { slug } = await params;
 
   return (
-    <div className="py-8 px-4">
+    <div className="py-6">
       <DebateShell eventSlug={slug} />
     </div>
   );

@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Gavel, Loader2, CalendarDays, ChevronRight } from "lucide-react";
+import {
+  Gavel,
+  Loader2,
+  CalendarDays,
+  ChevronRight,
+  Plus,
+  X,
+  Trophy,
+  Settings,
+  AlertCircle,
+} from "lucide-react";
+import { ROLE_HIERARCHY } from "@/lib/dbt/schemas";
 
 interface UserData {
   id: string;
@@ -40,10 +51,29 @@ interface JudgeAssignment {
   }[];
 }
 
+function getRoleLevel(role: string): number {
+  return ROLE_HIERARCHY[role as keyof typeof ROLE_HIERARCHY] ?? 0;
+}
+
 export default function JudgeDashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [assignments, setAssignments] = useState<JudgeAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  // Create event form state
+  const [form, setForm] = useState({
+    title: "",
+    organizer: "",
+    startDate: "",
+    endDate: "",
+    location: "",
+    minScore: 4,
+    maxScore: 6,
+  });
+
   const router = useRouter();
 
   useEffect(() => {
@@ -72,6 +102,41 @@ export default function JudgeDashboardPage() {
     }
   };
 
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.startDate) {
+      setCreateError("Title and start date are required.");
+      return;
+    }
+    setCreating(true);
+    setCreateError("");
+    try {
+      const res = await fetch("/api/tools/dbt/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          organizer: form.organizer.trim() || null,
+          startDate: new Date(form.startDate).toISOString(),
+          endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
+          location: form.location.trim() || null,
+          minScore: form.minScore,
+          maxScore: form.maxScore,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCreateError(data.error || "Failed to create event.");
+        return;
+      }
+      router.push(`/tools/dbt/${data.event.slug}`);
+    } catch {
+      setCreateError("Network error. Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading || !user) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -80,8 +145,10 @@ export default function JudgeDashboardPage() {
     );
   }
 
+  const isJudgeAdmin = getRoleLevel(user.role) >= ROLE_HIERARCHY.JUDGE_ADMIN;
+
   return (
-    <div className="py-10 px-4 max-w-3xl mx-auto space-y-6">
+    <div className="py-6 space-y-6">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -105,7 +172,210 @@ export default function JudgeDashboardPage() {
         </div>
       </div>
 
-      {/* Assignments */}
+      {/* ── Organizer Management Panel (JUDGE_ADMIN+) ── */}
+      {isJudgeAdmin && (
+        <div className="rounded-xl border border-ekd-gold/30 bg-ekd-gold/5 overflow-hidden">
+          {/* Panel header */}
+          <div className="flex items-center justify-between gap-4 px-5 py-3.5 border-b border-ekd-gold/20">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-ekd-gold" />
+              <span className="text-sm font-semibold text-foreground">
+                Organizer Tools
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/tools/dbt"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Manage All Events
+              </Link>
+              <button
+                onClick={() => {
+                  setShowCreate((v) => !v);
+                  setCreateError("");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-ekd-gold px-3 py-1.5 text-xs font-semibold text-ekd-dark-brown hover:bg-ekd-light-gold transition-colors"
+              >
+                {showCreate ? (
+                  <>
+                    <X className="h-3.5 w-3.5" />
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3.5 w-3.5" />
+                    Create Event
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Create event form */}
+          {showCreate && (
+            <form onSubmit={handleCreateEvent} className="px-5 py-4 space-y-4">
+              {createError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {createError}
+                </div>
+              )}
+
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Event Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.title}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, title: e.target.value }))
+                  }
+                  placeholder="e.g. Spring Debate Championship 2026"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                />
+              </div>
+
+              {/* Organizer + Location */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Organizer
+                  </label>
+                  <input
+                    type="text"
+                    value={form.organizer}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, organizer: e.target.value }))
+                    }
+                    placeholder="e.g. EKD Digital AEC"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={form.location}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, location: e.target.value }))
+                    }
+                    placeholder="e.g. Accra, Ghana"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                  />
+                </div>
+              </div>
+
+              {/* Start + End Date */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={form.startDate}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, startDate: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={form.endDate}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, endDate: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                  />
+                </div>
+              </div>
+
+              {/* Score range */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Min Score
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={form.minScore}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        minScore: parseInt(e.target.value) || 4,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Max Score
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={form.maxScore}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        maxScore: parseInt(e.target.value) || 6,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 focus:border-ekd-gold transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="inline-flex items-center gap-2 rounded-lg bg-ekd-gold px-5 py-2 text-sm font-semibold text-ekd-dark-brown hover:bg-ekd-light-gold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating…
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      Create Event
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* No-form summary row */}
+          {!showCreate && (
+            <div className="px-5 py-3 text-xs text-muted-foreground">
+              Create and manage debate events, assign judges, and run scoring
+              from here.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Judging Assignments ── */}
       {assignments.length === 0 ? (
         <div className="rounded-xl border border-border bg-card text-center py-16 px-6">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-ekd-gold/10">
