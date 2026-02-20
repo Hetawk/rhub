@@ -14,7 +14,11 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 // Routes that require authentication
-const PROTECTED_PATTERNS = [/^\/tools\/dbt\/judge($|\/)/];
+const PROTECTED_PATTERNS = [
+  /^\/tools\/dbt\/judge($|\/)/,
+  /^\/dashboard($|\/)/,
+  /^\/profile($|\/)/,
+];
 
 // Auth routes that logged-in users shouldn't access
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
@@ -36,7 +40,7 @@ export async function middleware(request: NextRequest) {
   // Redirect logged-in users away from auth pages
   if (isAuthenticated && AUTH_ROUTES.some((route) => pathname === route)) {
     const redirectUrl =
-      request.nextUrl.searchParams.get("redirect") || "/tools/dbt";
+      request.nextUrl.searchParams.get("redirect") || "/dashboard";
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }
 
@@ -56,7 +60,8 @@ export async function middleware(request: NextRequest) {
   for (const pattern of ADMIN_PATTERNS) {
     if (pattern.test(pathname)) {
       if (!isAuthenticated) {
-        const loginUrl = new URL("/admin/login", request.url);
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
       }
       break;

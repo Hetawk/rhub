@@ -61,21 +61,22 @@ export const ROLE_META: Record<RoleName, RoleMeta> = {
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
     level: ROLE_HIERARCHY.JUDGE,
   },
-  AUDIENCE: {
-    label: "Audience",
-    color: "text-slate-500",
-    badge: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-    level: ROLE_HIERARCHY.AUDIENCE,
+  USER: {
+    label: "User",
+    color: "text-ekd-gold",
+    badge:
+      "bg-ekd-gold/10 text-ekd-dark-brown dark:bg-ekd-gold/20 dark:text-ekd-gold",
+    level: ROLE_HIERARCHY.USER,
   },
 };
 
 /**
  * Get display metadata for a role string.
- * Falls back gracefully to AUDIENCE if the role is unknown/undefined.
+ * Falls back gracefully to USER if the role is unknown/undefined.
  */
 export function getRoleMeta(role: string | null | undefined): RoleMeta {
-  if (!role) return ROLE_META.AUDIENCE;
-  return ROLE_META[role as RoleName] ?? ROLE_META.AUDIENCE;
+  if (!role) return ROLE_META.USER;
+  return ROLE_META[role as RoleName] ?? ROLE_META.USER;
 }
 
 /**

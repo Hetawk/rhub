@@ -10,7 +10,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/tools/dbt";
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

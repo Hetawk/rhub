@@ -282,7 +282,7 @@ async function main() {
     data: {
       title: "A.N.D GROUP OF COMPANIES LLC - Corporate Account Opening Package",
       description:
-        "Complete corporate banking information and account opening package for A.N.D Group of Companies LLC. Includes company details, beneficial ownership information, and required documentation for financial institutions. Public access for 3 hours, then password-protected.",
+        "Complete corporate banking information and account opening package for A.N.D Group of Companies LLC. Includes company details, beneficial ownership information, and required documentation for financial institutions. Coming soon.",
       fileName: "Bank_Info.pdf",
       filePath: "public/secrets/Bank_Info.pdf",
       fileSize: 10849715,
@@ -291,7 +291,7 @@ async function main() {
       accessLevel: "public",
       password: hashPwd("UBA"),
       publicUntil: publicUntil,
-      isActive: true,
+      isActive: false,
     },
   });
 

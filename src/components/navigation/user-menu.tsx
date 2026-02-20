@@ -12,6 +12,9 @@ import {
   Settings,
   LogIn,
   UserPlus,
+  LayoutDashboard,
+  BookOpen,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getRoleMeta } from "@/lib/roles";
@@ -61,6 +64,7 @@ export function UserMenu() {
 
   const roleInfo = user ? getRoleMeta(user.role) : null;
   const isAdmin = user && ["SUPER_ADMIN", "ADMIN"].includes(user.role);
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isJudgeRole =
     user &&
     ["SUPER_ADMIN", "ADMIN", "JUDGE_ADMIN", "HEAD_JUDGE", "JUDGE"].includes(
@@ -84,7 +88,7 @@ export function UserMenu() {
         </Link>
         <Link
           href="/register"
-          className="hidden sm:flex items-center gap-1.5 text-sm font-medium bg-accent text-accent-foreground px-3 py-1.5 rounded-md hover:bg-accent/80 transition-colors"
+          className="hidden sm:flex items-center gap-1.5 text-sm font-medium bg-ekd-gold text-ekd-dark-brown px-3 py-1.5 rounded-md hover:bg-ekd-light-gold transition-colors"
         >
           <UserPlus className="h-3.5 w-3.5" />
           Register
@@ -154,7 +158,42 @@ export function UserMenu() {
 
           {/* Menu items */}
           <div className="p-1.5 space-y-0.5">
-            {isJudgeRole && (
+            {/* General — all users */}
+            <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              General
+            </p>
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <LayoutDashboard className="h-4 w-4 text-ekd-gold" />
+              My Dashboard
+            </Link>
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <User className="h-4 w-4 text-muted-foreground" />
+              Profile &amp; Settings
+            </Link>
+            <Link
+              href="/docs"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              Documentation
+            </Link>
+          </div>
+
+          {/* Debate Hub — judge roles only */}
+          {isJudgeRole && (
+            <div className="p-1.5 space-y-0.5 border-t border-border">
+              <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                Debate Hub
+              </p>
               <Link
                 href="/tools/dbt/judge"
                 onClick={() => setOpen(false)}
@@ -163,18 +202,23 @@ export function UserMenu() {
                 <Gavel className="h-4 w-4 text-ekd-gold" />
                 Judge Dashboard
               </Link>
-            )}
-            {isJudgeRole && (
               <Link
                 href="/tools/dbt"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                <Gavel className="h-4 w-4 text-ekd-gold/60" />
+                <Gavel className="h-4 w-4 text-muted-foreground" />
                 Debate Events
               </Link>
-            )}
-            {isAdmin && (
+            </div>
+          )}
+
+          {/* Administration — admin+ only */}
+          {isAdmin && (
+            <div className="p-1.5 space-y-0.5 border-t border-border">
+              <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                Administration
+              </p>
               <Link
                 href="/admin"
                 onClick={() => setOpen(false)}
@@ -183,26 +227,28 @@ export function UserMenu() {
                 <Shield className="h-4 w-4 text-blue-500" />
                 Admin Panel
               </Link>
-            )}
-            <Link
-              href="/profile"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
-            >
-              <User className="h-4 w-4 text-muted-foreground" />
-              Profile
-            </Link>
-            {user.role === "SUPER_ADMIN" && (
-              <Link
-                href="/admin"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
-              >
-                <Settings className="h-4 w-4 text-purple-500" />
-                System Settings
-              </Link>
-            )}
-          </div>
+              {isSuperAdmin && (
+                <Link
+                  href="/admin/users"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                >
+                  <Crown className="h-4 w-4 text-purple-500" />
+                  User Management
+                </Link>
+              )}
+              {isSuperAdmin && (
+                <Link
+                  href="/admin/settings"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                >
+                  <Settings className="h-4 w-4 text-purple-400" />
+                  System Settings
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Logout */}
           <div className="p-1.5 border-t border-border">

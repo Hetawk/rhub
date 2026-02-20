@@ -11,7 +11,7 @@ import { cookies } from "next/headers";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-  const state = searchParams.get("state") || "/tools/dbt";
+  const state = searchParams.get("state") || "/dashboard";
   const errorParam = searchParams.get("error");
 
   const siteUrl =
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
           name: googleUser.name || googleUser.email.split("@")[0],
           password: null,
           googleId: googleUser.id,
-          role: "AUDIENCE",
+          role: "USER",
           isActive: true,
           emailVerified: true,
         },
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
     // Redirect to intended destination
     const destination = decodeURIComponent(state);
     // Only allow relative paths to prevent open redirect
-    const safeDest = destination.startsWith("/") ? destination : "/tools/dbt";
+    const safeDest = destination.startsWith("/") ? destination : "/dashboard";
     return NextResponse.redirect(`${siteUrl}${safeDest}`);
   } catch (error) {
     console.error("Google auth callback error:", error);

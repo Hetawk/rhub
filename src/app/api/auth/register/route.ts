@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
           email,
           name,
           password: hashed,
-          role: "AUDIENCE",
+          role: "USER",
           emailVerified: false,
           verifyToken: otp,
           verifyTokenExp: expiry,

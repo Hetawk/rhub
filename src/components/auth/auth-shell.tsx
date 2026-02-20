@@ -1,10 +1,10 @@
 import Image from "next/image";
 
-const FEATURES = [
-  "Debate tournament management & scoring",
-  "Research reference tools & converters",
-  "Judge dashboards & real-time results",
-  "Docs, API & developer resources",
+const HIGHLIGHTS = [
+  "Access research tools, converters & references",
+  "LaTeX to Word, BibTeX, URL shortener & more",
+  "Downloadable templates, guides & API docs",
+  "Kingdom-focused digital resources & services",
 ];
 
 function BrandPanel() {
@@ -31,7 +31,7 @@ function BrandPanel() {
           Building a Better World Through KINGDOM Principles
         </p>
         <ul className="space-y-3">
-          {FEATURES.map((item) => (
+          {HIGHLIGHTS.map((item) => (
             <li
               key={item}
               className="flex items-start gap-2.5 text-sm text-white/70"

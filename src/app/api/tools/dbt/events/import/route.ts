@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
               data: {
                 email: importEmail,
                 name: jd.alias,
-                role: "AUDIENCE",
+                role: "USER",
                 emailVerified: false,
                 isActive: false, // stub — not a real account
               },

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       } else {
         // Upgrade role if needed
         const roleLevel: Record<string, number> = {
-          AUDIENCE: 0,
+          USER: 0,
           JUDGE: 1,
           HEAD_JUDGE: 2,
         };
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Upgrade role if needed
     const roleLevel: Record<string, number> = {
-      AUDIENCE: 0,
+      USER: 0,
       JUDGE: 1,
       HEAD_JUDGE: 2,
     };

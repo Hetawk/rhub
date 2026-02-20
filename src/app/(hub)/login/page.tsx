@@ -10,7 +10,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/tools/dbt";
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,7 +78,7 @@ function LoginForm() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Sign in to access the Debate Hub and your tools
+          Sign in to access your EKD Digital resources and tools
         </p>
       </div>
 
@@ -189,7 +189,7 @@ function LoginForm() {
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
         <Link
-          href={`/register${redirectTo !== "/tools/dbt" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
+          href={`/register${redirectTo !== "/dashboard" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
           className="font-medium text-[#d4af37] hover:text-[#c9a227] transition-colors"
         >
           Create one

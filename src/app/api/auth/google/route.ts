@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const state = searchParams.get("state") || "/tools/dbt";
+  const state = searchParams.get("state") || "/dashboard";
 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://rhub.ekddigital.com";

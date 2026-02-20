@@ -47,7 +47,7 @@ enum UserRole {
     JUDGE_ADMIN
     HEAD_JUDGE
     JUDGE
-    AUDIENCE
+    USER
 }
 
 enum DebateEventStatus {
@@ -201,7 +201,7 @@ model User {
     email          String    @unique
     password       String? // bcrypt hashed (null for OAuth-only users)
     name           String
-    role           UserRole  @default(AUDIENCE)
+    role           UserRole  @default(USER)
     isActive       Boolean   @default(true)
     emailVerified  Boolean   @default(false)
     googleId       String?   @unique

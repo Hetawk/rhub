@@ -48,7 +48,7 @@ export const ROLE_HIERARCHY = {
   JUDGE_ADMIN: 3,
   HEAD_JUDGE: 2,
   JUDGE: 1,
-  AUDIENCE: 0,
+  USER: 0,
 } as const;
 
 export type RoleName = keyof typeof ROLE_HIERARCHY;
