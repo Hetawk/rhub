@@ -105,7 +105,7 @@ export function UserMenu() {
         aria-label="User menu"
       >
         {/* Avatar */}
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-br from-amber-400 to-amber-600 text-white text-xs font-bold shrink-0">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-ekd-gold to-ekd-maroon text-white text-xs font-bold shrink-0">
           {user.name.charAt(0).toUpperCase()}
         </div>
         {/* Name + role on larger screens */}
@@ -130,7 +130,7 @@ export function UserMenu() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-amber-400 to-amber-600 text-white font-bold shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-ekd-gold to-ekd-maroon text-white font-bold shrink-0">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -160,7 +160,7 @@ export function UserMenu() {
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                <Gavel className="h-4 w-4 text-amber-500" />
+                <Gavel className="h-4 w-4 text-ekd-gold" />
                 Judge Dashboard
               </Link>
             )}
@@ -170,7 +170,7 @@ export function UserMenu() {
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                <Gavel className="h-4 w-4 text-muted-foreground" />
+                <Gavel className="h-4 w-4 text-ekd-gold/60" />
                 Debate Events
               </Link>
             )}

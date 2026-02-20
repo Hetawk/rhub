@@ -107,27 +107,27 @@ function brandedTemplate(content: string): string {
 <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
 
   <!-- Header with logo -->
-  <tr><td style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 32px;text-align:center">
+  <tr><td style="background:linear-gradient(135deg,#1f1c18,#182e5f);padding:28px 32px;text-align:center">
     <img src="${siteUrl}/rhub_logo.png"
          alt="RHub Logo"
          width="80"
          style="display:block;margin:0 auto 14px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" />
-    <h1 style="margin:0;color:#d4af37;font-size:22px;font-weight:700;letter-spacing:0.5px">EKD Digital Resource Hub</h1>
+    <h1 style="margin:0;color:#c8a061;font-size:22px;font-weight:700;letter-spacing:0.5px">EKD Digital Resource Hub</h1>
     <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:13px;font-style:italic">Building a Better World Through KINGDOM Principles</p>
     <p style="margin:4px 0 0;color:rgba(255,255,255,0.5);font-size:11px">rhub.ekddigital.com</p>
   </td></tr>
 
   <!-- Gold accent bar -->
-  <tr><td style="height:3px;background:linear-gradient(90deg,transparent 0%,#d4af37 50%,transparent 100%)"></td></tr>
+  <tr><td style="height:3px;background:linear-gradient(90deg,transparent 0%,#c8a061 50%,transparent 100%)"></td></tr>
 
   <!-- Body content -->
   <tr><td style="padding:32px">${content}</td></tr>
 
   <!-- Gold accent bar -->
-  <tr><td style="height:3px;background:linear-gradient(90deg,transparent 0%,#d4af37 50%,transparent 100%)"></td></tr>
+  <tr><td style="height:3px;background:linear-gradient(90deg,transparent 0%,#c8a061 50%,transparent 100%)"></td></tr>
 
   <!-- Footer -->
-  <tr><td style="padding:20px 32px;background:linear-gradient(135deg,#1a1a2e,#16213e);text-align:center">
+  <tr><td style="padding:20px 32px;background:linear-gradient(135deg,#1f1c18,#182e5f);text-align:center">
     <img src="${siteUrl}/logo.png"
          alt="EKD Digital"
          width="48"
@@ -136,11 +136,11 @@ function brandedTemplate(content: string): string {
       &copy; 2023&ndash;${year} EKD Digital. All rights reserved.
     </p>
     <p style="margin:0 0 4px;font-size:12px">
-      <a href="${siteUrl}" style="color:#d4af37;text-decoration:none;font-weight:500">rhub.ekddigital.com</a>
+      <a href="${siteUrl}" style="color:#c8a061;text-decoration:none;font-weight:500">rhub.ekddigital.com</a>
       &nbsp;|&nbsp;
       <a href="mailto:support@ekddigital.com" style="color:rgba(255,255,255,0.7);text-decoration:none">support@ekddigital.com</a>
     </p>
-    <p style="margin:0;color:#d4af37;font-size:11px;font-style:italic">Building a Better World Through KINGDOM Principles</p>
+    <p style="margin:0;color:#c8a061;font-size:11px;font-style:italic">Building a Better World Through KINGDOM Principles</p>
   </td></tr>
 </table>
 </td></tr>
@@ -154,12 +154,12 @@ export async function sendVerificationEmail(
   token: string,
 ): Promise<boolean> {
   const html = brandedTemplate(`
-    <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:18px">Verify Your Email</h2>
-    <p style="color:#475569;line-height:1.6">Use this code to verify your account:</p>
+    <h2 style="margin:0 0 16px;color:#1f1c18;font-size:18px">Verify Your Email</h2>
+    <p style="color:#7a6e5a;line-height:1.6">Use this code to verify your account:</p>
     <div style="text-align:center;margin:24px 0">
-      <span style="display:inline-block;padding:16px 32px;background:#1a1a2e;color:#d4af37;font-size:28px;font-weight:700;letter-spacing:6px;border-radius:8px">${token}</span>
+      <span style="display:inline-block;padding:16px 32px;background:#1f1c18;color:#c8a061;font-size:28px;font-weight:700;letter-spacing:6px;border-radius:8px">${token}</span>
     </div>
-    <p style="color:#94a3b8;font-size:13px">This code expires in 15 minutes. If you didn't request this, ignore this email.</p>
+    <p style="color:#7a6e5a;font-size:13px">This code expires in 15 minutes. If you didn't request this, ignore this email.</p>
   `);
 
   return sendEmail({ to: email, subject: "Verify your RHub account", html });
@@ -170,12 +170,12 @@ export async function sendPasswordResetEmail(
   token: string,
 ): Promise<boolean> {
   const html = brandedTemplate(`
-    <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:18px">Reset Your Password</h2>
-    <p style="color:#475569;line-height:1.6">Use this code to reset your password:</p>
+    <h2 style="margin:0 0 16px;color:#1f1c18;font-size:18px">Reset Your Password</h2>
+    <p style="color:#7a6e5a;line-height:1.6">Use this code to reset your password:</p>
     <div style="text-align:center;margin:24px 0">
-      <span style="display:inline-block;padding:16px 32px;background:#1a1a2e;color:#d4af37;font-size:28px;font-weight:700;letter-spacing:6px;border-radius:8px">${token}</span>
+      <span style="display:inline-block;padding:16px 32px;background:#1f1c18;color:#c8a061;font-size:28px;font-weight:700;letter-spacing:6px;border-radius:8px">${token}</span>
     </div>
-    <p style="color:#94a3b8;font-size:13px">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
+    <p style="color:#7a6e5a;font-size:13px">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
   `);
 
   return sendEmail({ to: email, subject: "Reset your RHub password", html });
@@ -199,16 +199,16 @@ export async function sendJudgeInviteEmail(
     : "";
 
   const html = brandedTemplate(`
-    <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:18px">You've Been Invited as a Judge</h2>
+    <h2 style="margin:0 0 16px;color:#1f1c18;font-size:18px">You've Been Invited as a Judge</h2>
     ${gameLabel}
-    <p style="color:#475569;line-height:1.6">You have been assigned as <strong>${alias}</strong> for:</p>
-    <div style="margin:16px 0;padding:16px;background:#f8fafc;border-radius:8px;border-left:4px solid #d4af37">
-      <p style="margin:0;color:#1a1a2e;font-weight:600;font-size:16px">${eventTitle}</p>
+    <p style="color:#7a6e5a;line-height:1.6">You have been assigned as <strong>${alias}</strong> for:</p>
+    <div style="margin:16px 0;padding:16px;background:#fdf9f2;border-radius:8px;border-left:4px solid #c8a061">
+      <p style="margin:0;color:#1f1c18;font-weight:600;font-size:16px">${eventTitle}</p>
     </div>
     ${testNote}
-    <p style="color:#475569;line-height:1.6">Log in to access your judging dashboard and scoring sheets.</p>
+    <p style="color:#7a6e5a;line-height:1.6">Log in to access your judging dashboard and scoring sheets.</p>
     <div style="text-align:center;margin:24px 0">
-      <a href="${siteUrl}/tools/dbt/judge" style="display:inline-block;padding:12px 32px;background:#d4af37;color:#1a1a2e;text-decoration:none;border-radius:8px;font-weight:600">Go to Judge Dashboard</a>
+      <a href="${siteUrl}/tools/dbt/judge" style="display:inline-block;padding:12px 32px;background:#c8a061;color:#1f1c18;text-decoration:none;border-radius:8px;font-weight:600">Go to Judge Dashboard</a>
     </div>
   `);
 
@@ -232,28 +232,28 @@ export async function sendAccountSetupEmail(
   alias: string,
 ): Promise<boolean> {
   const html = brandedTemplate(`
-    <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:18px">You&rsquo;ve Been Invited as a Judge</h2>
-    <p style="color:#475569;line-height:1.6">Hi <strong>${name || "there"}</strong>,</p>
-    <p style="color:#475569;line-height:1.6">
+    <h2 style="margin:0 0 16px;color:#1f1c18;font-size:18px">You&rsquo;ve Been Invited as a Judge</h2>
+    <p style="color:#7a6e5a;line-height:1.6">Hi <strong>${name || "there"}</strong>,</p>
+    <p style="color:#7a6e5a;line-height:1.6">
       You have been assigned as judge <strong>${alias}</strong> for the following debate event:
     </p>
-    <div style="margin:16px 0;padding:16px;background:#f8fafc;border-radius:8px;border-left:4px solid #d4af37">
-      <p style="margin:0;color:#1a1a2e;font-weight:600;font-size:16px">${eventTitle}</p>
+    <div style="margin:16px 0;padding:16px;background:#fdf9f2;border-radius:8px;border-left:4px solid #c8a061">
+      <p style="margin:0;color:#1f1c18;font-weight:600;font-size:16px">${eventTitle}</p>
     </div>
-    <p style="color:#475569;line-height:1.6">
+    <p style="color:#7a6e5a;line-height:1.6">
       You don&rsquo;t have an account yet &mdash; click the button below to create one and
       get instant access to your judging panel. Your judge assignment will be linked automatically.
     </p>
     <div style="text-align:center;margin:28px 0">
       <a href="${setupLink}"
-         style="display:inline-block;padding:14px 36px;background:#d4af37;color:#1a1a2e;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px">
+         style="display:inline-block;padding:14px 36px;background:#c8a061;color:#1f1c18;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px">
         Set Up My Account →
       </a>
     </div>
-    <p style="color:#94a3b8;font-size:12px;text-align:center">
+    <p style="color:#7a6e5a;font-size:12px;text-align:center">
       This invitation link expires in 7 days. If you did not expect this email, you can safely ignore it.
     </p>
-    <p style="color:#94a3b8;font-size:11px;text-align:center;word-break:break-all">
+    <p style="color:#7a6e5a;font-size:11px;text-align:center;word-break:break-all">
       ${setupLink}
     </p>
   `);
@@ -277,20 +277,20 @@ export async function sendGameNotificationEmail(
   const isTest = gameType === "TEST";
 
   const timeInfo = startTime
-    ? `<p style="color:#475569"><strong>Scheduled:</strong> ${new Date(startTime).toLocaleString()}</p>`
+    ? `<p style="color:#7a6e5a"><strong>Scheduled:</strong> ${new Date(startTime).toLocaleString()}</p>`
     : "";
 
   const html = brandedTemplate(`
-    <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:18px">New Game Scheduled</h2>
+    <h2 style="margin:0 0 16px;color:#1f1c18;font-size:18px">New Game Scheduled</h2>
     ${isTest ? `<span style="display:inline-block;padding:4px 12px;background:#fef3c7;color:#92400e;border-radius:4px;font-size:12px;font-weight:600;margin-bottom:8px">TEST GAME</span>` : ""}
-    <div style="margin:16px 0;padding:16px;background:#f8fafc;border-radius:8px;border-left:4px solid #d4af37">
-      <p style="margin:0 0 4px;color:#1a1a2e;font-weight:600;font-size:16px">${eventTitle}</p>
-      <p style="margin:0 0 4px;color:#475569;font-size:14px">${roundTitle}</p>
-      <p style="margin:0;color:#64748b;font-size:13px;font-style:italic">"${topic}"</p>
+    <div style="margin:16px 0;padding:16px;background:#fdf9f2;border-radius:8px;border-left:4px solid #c8a061">
+      <p style="margin:0 0 4px;color:#1f1c18;font-weight:600;font-size:16px">${eventTitle}</p>
+      <p style="margin:0 0 4px;color:#7a6e5a;font-size:14px">${roundTitle}</p>
+      <p style="margin:0;color:#7a6e5a;font-size:13px;font-style:italic">"${topic}"</p>
     </div>
     ${timeInfo}
     <div style="text-align:center;margin:24px 0">
-      <a href="${siteUrl}/tools/dbt/judge" style="display:inline-block;padding:12px 32px;background:#d4af37;color:#1a1a2e;text-decoration:none;border-radius:8px;font-weight:600">Open Judge Dashboard</a>
+      <a href="${siteUrl}/tools/dbt/judge" style="display:inline-block;padding:12px 32px;background:#c8a061;color:#1f1c18;text-decoration:none;border-radius:8px;font-weight:600">Open Judge Dashboard</a>
     </div>
   `);
 

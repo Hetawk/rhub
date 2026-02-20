@@ -3,15 +3,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Eye,
-  EyeOff,
-  Loader2,
-  Gavel,
-  Chrome,
-  CheckCircle2,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2, Chrome, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 function RegisterForm() {
   const router = useRouter();
@@ -168,18 +162,18 @@ function RegisterForm() {
 
   if (checkingAuth) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-ekd-gold" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
       </div>
     );
   }
 
   if (step === "verify") {
     return (
-      <div className="mx-auto max-w-md w-full px-4 py-12">
-        <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg">
-            <CheckCircle2 className="h-7 w-7 text-white" />
+      <AuthShell>
+        <div className="mb-8">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg">
+            <CheckCircle2 className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">
             Check Your Email
@@ -261,19 +255,16 @@ function RegisterForm() {
             Go back
           </button>
         </p>
-      </div>
+      </AuthShell>
     );
   }
 
   const strength = pwdStrength();
 
   return (
-    <div className="mx-auto max-w-md w-full px-4 py-12">
+    <AuthShell>
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-ekd-light-gold to-ekd-gold shadow-lg">
-          <Gavel className="h-7 w-7 text-white" />
-        </div>
+      <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Create Account</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Join to participate in debates, judging, and more
@@ -284,7 +275,7 @@ function RegisterForm() {
       <button
         onClick={handleGoogle}
         disabled={googleLoading}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:border-border/80 transition-colors disabled:opacity-50 mb-4"
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50 mb-4"
       >
         {googleLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -459,7 +450,7 @@ function RegisterForm() {
           Sign in
         </Link>
       </p>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -467,7 +458,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex min-h-screen items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-ekd-gold" />
         </div>
       }

@@ -3,8 +3,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, Gavel, Chrome } from "lucide-react";
+import { Eye, EyeOff, Loader2, Chrome } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 function LoginForm() {
   const router = useRouter();
@@ -65,20 +66,17 @@ function LoginForm() {
 
   if (checkingAuth) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md w-full px-4 py-12">
+    <AuthShell>
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg">
-          <Gavel className="h-7 w-7 text-white" />
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Sign in to access the Debate Hub and your tools
         </p>
@@ -88,7 +86,7 @@ function LoginForm() {
       <button
         onClick={handleGoogle}
         disabled={googleLoading}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:border-border/80 transition-colors disabled:opacity-50 mb-4"
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50 mb-4"
       >
         {googleLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -131,7 +129,7 @@ function LoginForm() {
             placeholder="you@example.com"
             className={cn(
               "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm",
-              "focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500",
+              "focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 focus:border-[#d4af37]",
               "placeholder:text-muted-foreground/60 transition-colors",
             )}
           />
@@ -144,7 +142,7 @@ function LoginForm() {
             </label>
             <Link
               href="/forgot-password"
-              className="text-xs text-amber-600 hover:text-amber-500 transition-colors"
+              className="text-xs text-[#d4af37] hover:text-[#c9a227] transition-colors"
             >
               Forgot password?
             </Link>
@@ -159,7 +157,7 @@ function LoginForm() {
               placeholder="••••••••"
               className={cn(
                 "w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm",
-                "focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500",
+                "focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 focus:border-[#d4af37]",
                 "placeholder:text-muted-foreground/60 transition-colors",
               )}
             />
@@ -181,7 +179,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#d4af37] hover:bg-[#c9a227] text-[#1a1a2e] font-semibold py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {loading ? "Signing in..." : "Sign In"}
@@ -192,12 +190,12 @@ function LoginForm() {
         Don&apos;t have an account?{" "}
         <Link
           href={`/register${redirectTo !== "/tools/dbt" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
-          className="font-medium text-amber-600 hover:text-amber-500 transition-colors"
+          className="font-medium text-[#d4af37] hover:text-[#c9a227] transition-colors"
         >
           Create one
         </Link>
       </p>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -205,8 +203,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
         </div>
       }
     >

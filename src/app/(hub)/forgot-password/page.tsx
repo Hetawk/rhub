@@ -3,8 +3,9 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Loader2, KeyRound, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 function ForgotPasswordForm() {
   const searchParams = useSearchParams();
@@ -80,32 +81,31 @@ function ForgotPasswordForm() {
 
   if (step === "done") {
     return (
-      <div className="mx-auto max-w-md w-full px-4 py-16 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg">
-          <CheckCircle2 className="h-7 w-7 text-white" />
+      <AuthShell>
+        <div className="text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg">
+            <CheckCircle2 className="h-6 w-6 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">
+            Password Reset!
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Your password has been updated successfully.
+          </p>
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center rounded-xl bg-[#d4af37] hover:bg-[#c9a227] text-[#1a1a2e] font-semibold px-8 py-3 text-sm transition-colors"
+          >
+            Sign In Now
+          </Link>
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-2">
-          Password Reset!
-        </h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          Your password has been updated successfully.
-        </p>
-        <Link
-          href="/login"
-          className="inline-flex items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold px-8 py-3 text-sm transition-colors"
-        >
-          Sign In Now
-        </Link>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md w-full px-4 py-12">
-      <div className="text-center mb-8">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg">
-          <KeyRound className="h-7 w-7 text-white" />
-        </div>
+    <AuthShell>
+      <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Forgot Password</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {step === "email"
@@ -139,14 +139,14 @@ function ForgotPasswordForm() {
               placeholder="you@example.com"
               className={cn(
                 "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm",
-                "focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-colors",
+                "focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 focus:border-[#d4af37] transition-colors",
               )}
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold py-3 text-sm transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#d4af37] hover:bg-[#c9a227] text-[#1a1a2e] font-semibold py-3 text-sm transition-colors disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? "Sending..." : "Send Reset Code"}
@@ -174,7 +174,7 @@ function ForgotPasswordForm() {
               maxLength={6}
               className={cn(
                 "w-full rounded-xl border border-border bg-background px-4 py-3 text-2xl tracking-[1rem] text-center font-mono",
-                "focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-colors",
+                "focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 focus:border-[#d4af37] transition-colors",
               )}
             />
           </div>
@@ -191,7 +191,7 @@ function ForgotPasswordForm() {
               placeholder="At least 6 characters"
               className={cn(
                 "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm",
-                "focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-colors",
+                "focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 focus:border-[#d4af37] transition-colors",
               )}
             />
           </div>
@@ -207,7 +207,7 @@ function ForgotPasswordForm() {
               placeholder="Confirm new password"
               className={cn(
                 "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm",
-                "focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-colors",
+                "focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 focus:border-[#d4af37] transition-colors",
                 confirmPwd && confirmPwd !== newPassword && "border-red-400",
               )}
             />
@@ -219,7 +219,7 @@ function ForgotPasswordForm() {
               (!!confirmPwd && confirmPwd !== newPassword) ||
               otp.length !== 6
             }
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold py-3 text-sm transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#d4af37] hover:bg-[#c9a227] text-[#1a1a2e] font-semibold py-3 text-sm transition-colors disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? "Resetting..." : "Reset Password"}
@@ -230,12 +230,12 @@ function ForgotPasswordForm() {
       <p className="mt-6 text-center text-sm text-muted-foreground">
         <Link
           href="/login"
-          className="font-medium text-amber-600 hover:text-amber-500 transition-colors"
+          className="font-medium text-[#d4af37] hover:text-[#c9a227] transition-colors"
         >
           ← Back to Sign In
         </Link>
       </p>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -243,8 +243,8 @@ export default function ForgotPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
         </div>
       }
     >

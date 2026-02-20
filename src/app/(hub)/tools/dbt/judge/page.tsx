@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AuthForm } from "@/components/tools/dbt/auth-form";
-import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Gavel, Loader2, CalendarDays, ChevronRight } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -43,24 +44,25 @@ export default function JudgeDashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [assignments, setAssignments] = useState<JudgeAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (data.id) {
           setUser(data);
-          fetchAssignments(data.id);
+          fetchAssignments();
         } else {
-          setLoading(false);
+          router.replace("/login?redirect=/tools/dbt/judge");
         }
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => router.replace("/login?redirect=/tools/dbt/judge"));
+  }, [router]);
 
-  const fetchAssignments = async (userId: string) => {
+  const fetchAssignments = async () => {
     try {
-      const res = await fetch(`/api/tools/dbt/judge/assignments`);
+      const res = await fetch("/api/tools/dbt/judge/assignments");
       const data = await res.json();
       setAssignments(data.assignments || []);
     } catch (e) {
@@ -70,97 +72,111 @@ export default function JudgeDashboardPage() {
     }
   };
 
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="py-12 px-4">
-        <div className="max-w-md mx-auto text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">Judge Dashboard</h1>
-          <p className="text-slate-500 mt-1">
-            Sign in to access your judging assignments
-          </p>
-        </div>
-        <AuthForm
-          mode="login"
-          onSuccess={(u) => {
-            setUser(u);
-            fetchAssignments(u.id);
-          }}
-        />
+        <Loader2 className="h-8 w-8 animate-spin text-ekd-gold" />
       </div>
     );
   }
 
   return (
-    <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="py-10 px-4 max-w-3xl mx-auto space-y-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Judge Dashboard</h1>
-          <p className="text-slate-500 text-sm">Welcome, {user.name}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <Gavel className="h-5 w-5 text-ekd-gold" />
+            <h1 className="text-2xl font-bold text-foreground">
+              Judge Dashboard
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Welcome back,{" "}
+            <span className="font-medium text-foreground">{user.name}</span>
+          </p>
         </div>
-        <button
-          onClick={async () => {
-            await fetch("/api/auth/logout", { method: "POST" });
-            setUser(null);
-          }}
-          className="text-sm text-slate-400 hover:text-red-500"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted rounded-lg px-3 py-2">
+          <CalendarDays className="h-3.5 w-3.5" />
+          <span>
+            {assignments.length} event
+            {assignments.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
+      {/* Assignments */}
       {assignments.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
-          <p>No judging assignments yet.</p>
-          <p className="text-sm mt-1">
+        <div className="rounded-xl border border-border bg-card text-center py-16 px-6">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-ekd-gold/10">
+            <Gavel className="h-6 w-6 text-ekd-gold" />
+          </div>
+          <p className="text-base font-medium text-foreground">
+            No judging assignments yet
+          </p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
             You&apos;ll see your assignments here once an organizer assigns you
             to an event.
           </p>
+          <Link
+            href="/tools/dbt"
+            className="mt-6 inline-flex items-center gap-1.5 text-sm text-ekd-gold hover:text-ekd-light-gold transition-colors font-medium"
+          >
+            Browse Events <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       ) : (
         <div className="space-y-4">
           {assignments.map((a) => (
             <div
               key={a.id}
-              className="border rounded-xl bg-white shadow-sm overflow-hidden"
+              className="rounded-xl border border-border bg-card overflow-hidden shadow-sm"
             >
-              <div className="bg-slate-800 px-4 py-3">
-                <h3 className="text-white font-semibold">{a.event.title}</h3>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  Judge:{" "}
-                  <span className="text-amber-400 font-medium">{a.alias}</span>
-                </p>
+              {/* Event header bar */}
+              <div className="bg-ekd-dark-brown px-5 py-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-white font-semibold text-sm truncate">
+                    {a.event.title}
+                  </h3>
+                  <p className="text-white/50 text-xs mt-0.5">
+                    Judge alias:{" "}
+                    <span className="text-ekd-gold font-medium">{a.alias}</span>
+                  </p>
+                </div>
+                <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-ekd-gold/15 text-ekd-gold">
+                  {a.event.status}
+                </span>
               </div>
-              <div className="p-4 space-y-2">
+
+              {/* Rounds / slots */}
+              <div className="p-4">
                 {a.slots.length > 0 ? (
-                  a.slots.map((slot) => (
-                    <a
-                      key={slot.id}
-                      href={`/tools/dbt/${a.event.slug}`}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-amber-50 hover:border-amber-200 transition-colors"
-                    >
-                      <div>
-                        <span className="font-medium text-sm text-slate-700">
-                          {slot.round.title || `Round ${slot.round.roundNum}`}
-                        </span>
-                        <span className="block text-xs text-slate-400">
-                          {slot.round.topic}
-                        </span>
-                      </div>
-                      <span className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 font-medium">
-                        J{slot.position}
-                      </span>
-                    </a>
-                  ))
+                  <div className="space-y-2">
+                    {a.slots.map((slot) => (
+                      <Link
+                        key={slot.id}
+                        href={`/tools/dbt/${a.event.slug}`}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-ekd-gold/40 hover:bg-ekd-gold/5 transition-colors group"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm text-foreground group-hover:text-ekd-gold transition-colors truncate">
+                            {slot.round.title || `Round ${slot.round.roundNum}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {slot.round.topic}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-3">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-ekd-gold/10 text-ekd-dark-brown font-semibold">
+                            J{slot.position}
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-ekd-gold transition-colors" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 ) : (
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground py-2 text-center">
                     No rounds assigned yet.
                   </p>
                 )}
