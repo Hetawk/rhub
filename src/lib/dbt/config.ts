@@ -9,42 +9,63 @@ export const SPEECH_TYPES = [
   {
     key: "CONSTRUCTIVE",
     label: "1st Speaker (Constructive Speech)",
+    shortLabel: "1st Speaker",
+    speechType: "Constructive Speech",
+    durationMins: 5,
     order: 1,
     speaker: "1st",
   },
   {
     key: "CROSS_FIRE_1",
     label: "1st Speaker (Cross Fire)",
+    shortLabel: "1st Cross-Fire",
+    speechType: "Cross-Examination",
+    durationMins: 6,
     order: 2,
     speaker: "1st",
   },
   {
     key: "REBUTTAL",
     label: "2nd Speaker (Rebuttal Speech)",
+    shortLabel: "2nd Speaker",
+    speechType: "Rebuttal Speech",
+    durationMins: 5,
     order: 3,
     speaker: "2nd",
   },
   {
     key: "CROSS_FIRE_2",
     label: "2nd Speaker (Cross Fire)",
+    shortLabel: "2nd Cross-Fire",
+    speechType: "Cross-Examination",
+    durationMins: 6,
     order: 4,
     speaker: "2nd",
   },
   {
     key: "SUMMARY",
     label: "1st Speaker (Summary Speech)",
+    shortLabel: "Summary",
+    speechType: "Summary Speech",
+    durationMins: 5,
     order: 5,
     speaker: "1st",
   },
   {
     key: "GRAND_CROSS_FIRE",
     label: "Grand Cross Fire",
+    shortLabel: "Grand Cross",
+    speechType: "Grand Cross-Examination",
+    durationMins: 8,
     order: 6,
     speaker: "both",
   },
   {
     key: "FINAL_FOCUS",
     label: "2nd Speaker (Final Focus Speech)",
+    shortLabel: "Final Focus",
+    speechType: "Final Focus Speech",
+    durationMins: 5,
     order: 7,
     speaker: "2nd",
   },
@@ -134,7 +155,7 @@ export const SCORING = {
   /** Max total per judge per side (7 * 30) */
   MAX_JUDGE_TOTAL: 210,
   /** Seconds before score auto-locks */
-  LOCK_DELAY_SECONDS: 15,
+  LOCK_DELAY_SECONDS: 30,
 } as const;
 
 // ---- Side labels ----

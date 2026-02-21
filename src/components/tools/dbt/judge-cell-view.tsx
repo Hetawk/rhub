@@ -66,12 +66,14 @@ interface LockInfo {
   scoreLockDeadline: string | null;
   scoreEditingLocked: boolean;
   isCompleted: boolean;
+  roundStatus: string;
 }
 
 interface Props {
   roundId: string;
   currentUserId?: string;
   isJudge: boolean;
+  canStartRound?: boolean;
   minScore?: number;
   maxScore?: number;
 }
@@ -97,6 +99,31 @@ function saveDraft(roundId: string, userId: string, data: unknown) {
   } catch {
     /* quota exceeded — ignore */
   }
+}
+
+// ─── Per-score lock countdown badge ─────────────────────────────────────────
+
+function ScoreLockCountdown({ lockedAt }: { lockedAt: string }) {
+  const countdown = useCountdown(lockedAt);
+  if (countdown === null) return null;
+  if (countdown <= 0)
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1.5 py-0.5">
+        🔒 locked
+      </span>
+    );
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 text-[10px] rounded px-1.5 py-0.5 font-mono",
+        countdown <= 10
+          ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+          : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
+      )}
+    >
+      ⏱ editable for {countdown}s
+    </span>
+  );
 }
 
 // ─── Countdown helpers ────────────────────────────────────────────────────────
@@ -169,16 +196,16 @@ function ScoreInput({
 
   const colorClass =
     value >= max * 0.85
-      ? "text-emerald-600"
+      ? "text-emerald-600 dark:text-emerald-400"
       : value <= min + 0.5
-        ? "text-red-500"
-        : "text-slate-700";
+        ? "text-red-500 dark:text-red-400"
+        : "text-slate-700 dark:text-slate-200";
 
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
-        className="w-7 h-7 rounded border border-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0"
+        className="w-7 h-7 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 transition-colors shrink-0"
         onClick={() => onChange(Math.max(min, +(value - 0.5).toFixed(1)))}
         disabled={disabled || value <= min}
         aria-label="Decrease score"
@@ -203,7 +230,7 @@ function ScoreInput({
         }}
         disabled={disabled}
         className={cn(
-          "w-14 text-center font-mono text-sm font-semibold border rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-colors",
+          "w-14 text-center font-mono text-sm font-semibold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-colors",
           "disabled:opacity-40 disabled:bg-transparent disabled:border-transparent disabled:cursor-not-allowed",
           "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
           colorClass,
@@ -211,7 +238,7 @@ function ScoreInput({
       />
       <button
         type="button"
-        className="w-7 h-7 rounded border border-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0"
+        className="w-7 h-7 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 transition-colors shrink-0"
         onClick={() => onChange(Math.min(max, +(value + 0.5).toFixed(1)))}
         disabled={disabled || value >= max}
         aria-label="Increase score"
@@ -248,30 +275,32 @@ function ReadOnlyCell({
   const totalPossible = SPEECH_TYPES.length * 2;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
       {/* Cell header */}
-      <div className="px-4 py-3 bg-slate-50 border-b flex items-center justify-between gap-2">
+      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wide">
             J{slot.position}
           </p>
-          <p className="font-semibold text-slate-800 text-sm">
+          <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
             {slot.judge.alias}
           </p>
-          <p className="text-xs text-slate-500">{slot.judge.user.name}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {slot.judge.user.name}
+          </p>
         </div>
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs text-slate-400 hover:text-slate-600 border border-slate-200 rounded px-2 py-1 transition-colors"
+          className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 transition-colors bg-white dark:bg-slate-800"
         >
           {expanded ? "Collapse" : "View"}
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="px-4 py-2 border-b bg-slate-50/60">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-amber-400 rounded-full transition-all"
               style={{ width: `${(submittedCount / totalPossible) * 100}%` }}
@@ -285,61 +314,61 @@ function ReadOnlyCell({
 
       {/* Scores (expandable) */}
       {expanded && (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
           {SPEECH_TYPES.map((sp) => {
             const proScore = getScore(proTeam, sp.key);
             const conScore = getScore(conTeam, sp.key);
             return (
               <div key={sp.key} className="px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase">
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase">
                   {sp.label}
                 </p>
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <p className="text-[10px] text-emerald-600 font-medium mb-0.5">
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mb-0.5">
                       PRO · {proTeam?.team.name}
                     </p>
                     {proScore ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-base font-bold text-slate-700 font-mono">
+                        <span className="text-base font-bold text-slate-700 dark:text-slate-200 font-mono">
                           {proScore.totalScore?.toFixed(1) ?? "—"}
                         </span>
                         {proScore.isLocked && (
-                          <span className="text-[9px] bg-slate-100 text-slate-500 rounded px-1">
+                          <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1">
                             locked
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-300 italic">
+                      <span className="text-xs text-slate-400 dark:text-slate-500 italic">
                         Pending…
                       </span>
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] text-red-500 font-medium mb-0.5">
+                    <p className="text-[10px] text-red-500 dark:text-red-400 font-medium mb-0.5">
                       CON · {conTeam?.team.name}
                     </p>
                     {conScore ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-base font-bold text-slate-700 font-mono">
+                        <span className="text-base font-bold text-slate-700 dark:text-slate-200 font-mono">
                           {conScore.totalScore?.toFixed(1) ?? "—"}
                         </span>
                         {conScore.isLocked && (
-                          <span className="text-[9px] bg-slate-100 text-slate-500 rounded px-1">
+                          <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1">
                             locked
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-300 italic">
+                      <span className="text-xs text-slate-400 dark:text-slate-500 italic">
                         Pending…
                       </span>
                     )}
                   </div>
                 </div>
                 {(proScore?.comment || conScore?.comment) && (
-                  <p className="text-[11px] text-slate-400 italic border-l-2 border-slate-200 pl-2 mt-1">
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 italic border-l-2 border-slate-200 dark:border-slate-700 pl-2 mt-1">
                     {proScore?.comment || conScore?.comment}
                   </p>
                 )}
@@ -497,19 +526,23 @@ function MyCell({
   const criteria = SPEECH_CRITERIA[speech.key] ?? [];
 
   return (
-    <div className="rounded-xl border-2 border-amber-300 bg-white shadow-md overflow-hidden">
+    <div className="rounded-xl border-2 border-amber-300 dark:border-amber-600 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
       {/* Cell header */}
-      <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs text-amber-500 font-semibold uppercase tracking-wide">
+          <p className="text-xs text-amber-500 dark:text-amber-400 font-semibold uppercase tracking-wide">
             J{slot.position} · Your Panel
           </p>
-          <p className="font-bold text-slate-800 text-sm">{slot.judge.alias}</p>
-          <p className="text-xs text-slate-500">{slot.judge.user.name}</p>
+          <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+            {slot.judge.alias}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {slot.judge.user.name}
+          </p>
         </div>
         <div className="text-right">
           {lockInfo.scoreEditingLocked ? (
-            <span className="text-xs bg-red-100 text-red-600 rounded px-2 py-0.5 font-medium">
+            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded px-2 py-0.5 font-medium">
               Scores Locked
             </span>
           ) : (
@@ -518,8 +551,8 @@ function MyCell({
                 className={cn(
                   "text-xs rounded px-2 py-0.5 font-medium",
                   countdown < 300
-                    ? "bg-red-100 text-red-600"
-                    : "bg-amber-100 text-amber-700",
+                    ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
                 )}
               >
                 {countdown > 0
@@ -529,7 +562,7 @@ function MyCell({
             )
           )}
           {autoSavedAt && !isScoreLocked && (
-            <p className="text-[10px] text-emerald-500 mt-0.5">
+            <p className="text-[10px] text-emerald-500 dark:text-emerald-400 mt-0.5">
               Draft saved{" "}
               {autoSavedAt.toLocaleTimeString([], {
                 hour: "2-digit",
@@ -542,7 +575,7 @@ function MyCell({
       </div>
 
       {/* Speech tabs */}
-      <div className="flex overflow-x-auto border-b border-amber-200 bg-amber-50/50 scrollbar-hide">
+      <div className="flex overflow-x-auto border-b border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 scrollbar-hide">
         {SPEECH_TYPES.map((sp) => {
           const proS = getExisting(proTeam?.id ?? "", sp.key);
           const conS = getExisting(conTeam?.id ?? "", sp.key);
@@ -555,17 +588,45 @@ function MyCell({
               className={cn(
                 "flex-shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeSpeech === sp.key
-                  ? "border-amber-500 text-amber-700"
-                  : "border-transparent text-slate-500 hover:text-slate-700",
-                done && "text-emerald-600",
-                partial && "text-amber-500",
+                  ? "border-amber-500 text-amber-700 dark:text-amber-400"
+                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                done && "text-emerald-600 dark:text-emerald-400",
+                partial && "text-amber-500 dark:text-amber-400",
               )}
             >
-              {sp.label.slice(0, 12)}
+              {sp.shortLabel}
               {done ? " ✓" : partial ? " ·" : ""}
             </button>
           );
         })}
+      </div>
+
+      {/* Active speech banner */}
+      <div className="px-4 pt-4 pb-0">
+        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500 dark:bg-amber-600 text-white font-bold text-sm shrink-0">
+            {speech.order}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Speech {speech.order} of {SPEECH_TYPES.length}
+            </p>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
+              {speech.speaker === "both"
+                ? "All Speakers"
+                : `${speech.speaker === "1st" ? "1st" : "2nd"} Speaker`}{" "}
+              ·{" "}
+              <span className="text-amber-600 dark:text-amber-400">
+                {speech.speechType}
+              </span>
+            </p>
+          </div>
+          <div className="ml-auto shrink-0">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg px-2.5 py-1">
+              ⏱ {speech.durationMins} min
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Scoring section for active speech, both teams */}
@@ -610,10 +671,10 @@ function MyCell({
                   className={cn(
                     "font-mono text-lg font-bold",
                     existing
-                      ? "text-slate-700"
+                      ? "text-slate-700 dark:text-slate-200"
                       : total > 0
-                        ? "text-amber-600"
-                        : "text-slate-300",
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-slate-300 dark:text-slate-600",
                   )}
                 >
                   {total > 0 ? total.toFixed(1) : "—"}
@@ -623,11 +684,18 @@ function MyCell({
               {/* Submitted state */}
               {existing ? (
                 <div className="space-y-2">
-                  <div className="text-xs text-slate-500 flex items-center gap-1">
-                    <span className="text-emerald-500">✓</span> Score submitted
-                    {existing.isLocked && (
-                      <span className="text-slate-400">(locked)</span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-emerald-500 dark:text-emerald-400">
+                      ✓
+                    </span>{" "}
+                    Score submitted
+                    {existing.lockedAt && !existing.isLocked ? (
+                      <ScoreLockCountdown lockedAt={existing.lockedAt} />
+                    ) : existing.isLocked ? (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] bg-slate-100 text-slate-500 rounded px-1.5 py-0.5">
+                        🔒 locked
+                      </span>
+                    ) : null}
                   </div>
                   {/* Criteria breakdown */}
                   {existing.criteria.length > 0 && (
@@ -639,12 +707,12 @@ function MyCell({
                         return (
                           <div
                             key={c.criteriaKey}
-                            className="text-[10px] flex justify-between bg-white/60 rounded px-2 py-1"
+                            className="text-[10px] flex justify-between bg-white/60 dark:bg-slate-800/60 rounded px-2 py-1"
                           >
-                            <span className="text-slate-400 truncate">
+                            <span className="text-slate-400 dark:text-slate-500 truncate">
                               {crit?.label ?? c.criteriaKey}
                             </span>
-                            <span className="font-semibold text-slate-600 font-mono">
+                            <span className="font-semibold text-slate-600 dark:text-slate-300 font-mono">
                               {c.score.toFixed(1)}
                             </span>
                           </div>
@@ -654,12 +722,12 @@ function MyCell({
                   )}
                   {/* Comment — always editable even if scores are locked */}
                   <div>
-                    <p className="text-[10px] text-slate-400 mb-1">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-1">
                       Comment (always editable)
                     </p>
                     <textarea
                       rows={2}
-                      className="w-full text-xs border border-slate-200 rounded-md p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-full text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-md p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300"
                       defaultValue={existing.comment ?? ""}
                       onBlur={async (e) => {
                         if (e.target.value === (existing.comment ?? "")) return;
@@ -687,7 +755,7 @@ function MyCell({
                       className="flex items-center justify-between gap-2"
                     >
                       <span
-                        className="text-xs text-slate-600 flex-1 min-w-0 truncate"
+                        className="text-xs text-slate-600 dark:text-slate-300 flex-1 min-w-0 truncate"
                         title={c.label}
                       >
                         {c.label}
@@ -717,7 +785,7 @@ function MyCell({
                   <textarea
                     rows={2}
                     placeholder="Optional comment…"
-                    className="w-full text-xs border border-slate-200 rounded-md p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300 mt-1"
+                    className="w-full text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-md p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300 mt-1"
                     disabled={!isEditable}
                     value={comments[team.id]?.[speech.key] ?? ""}
                     onChange={(e) =>
@@ -744,7 +812,7 @@ function MyCell({
                       "w-full py-2 rounded-lg text-xs font-semibold transition-all",
                       isEditable && allCriteriaFilled && !isSubmitting
                         ? "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
-                        : "bg-slate-100 text-slate-400 cursor-not-allowed",
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed",
                     )}
                   >
                     {isSubmitting
@@ -769,6 +837,7 @@ export function JudgeCellView({
   roundId,
   currentUserId,
   isJudge,
+  canStartRound = false,
   minScore = SCORING.MIN_CRITERIA,
   maxScore = SCORING.MAX_CRITERIA,
 }: Props) {
@@ -779,8 +848,10 @@ export function JudgeCellView({
     scoreLockDeadline: null,
     scoreEditingLocked: false,
     isCompleted: false,
+    roundStatus: "SCHEDULED",
   });
   const [loading, setLoading] = useState(true);
+  const [startingRound, setStartingRound] = useState(false);
 
   const fetchScores = useCallback(async () => {
     try {
@@ -807,6 +878,27 @@ export function JudgeCellView({
     }
   }, [roundId, currentUserId]);
 
+  const handleStartRound = async () => {
+    setStartingRound(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startRound: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to start round");
+        return;
+      }
+      await fetchScores();
+    } catch {
+      alert("Network error — could not start round");
+    } finally {
+      setStartingRound(false);
+    }
+  };
+
   useEffect(() => {
     fetchScores();
     const id = setInterval(fetchScores, 5000);
@@ -823,6 +915,7 @@ export function JudgeCellView({
 
   const proTeam = roundTeams.find((t) => t.side === "PRO");
   const conTeam = roundTeams.find((t) => t.side === "CON");
+  const isScheduled = lockInfo.roundStatus === "SCHEDULED";
 
   return (
     <div className="space-y-6">
@@ -852,69 +945,123 @@ export function JudgeCellView({
         )}
       </div>
 
-      {/* Lock alert banner */}
-      {lockInfo.scoreEditingLocked && !lockInfo.isCompleted && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-          <span>🔒</span>
-          <span>
-            Score editing deadline has passed. Comments can still be edited.
-          </span>
-        </div>
-      )}
-
-      {/* No-slot warning */}
-      {isJudge && !mySlot && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
-          You are listed as a judge for this event but have no slot assigned to
-          this round yet.
-        </div>
-      )}
-
-      {/* Judge cells grid */}
-      <div
-        className={cn(
-          "grid gap-4",
-          judgeSlots.length === 1 && "grid-cols-1 max-w-md mx-auto",
-          judgeSlots.length === 2 && "grid-cols-1 sm:grid-cols-2",
-          judgeSlots.length >= 3 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
-        )}
-      >
-        {judgeSlots.map((slot) => {
-          const isMySlot = mySlot?.id === slot.id;
-          if (isMySlot && isJudge && currentUserId) {
-            return (
-              <MyCell
-                key={slot.id}
-                slot={slot}
-                roundId={roundId}
-                roundTeams={roundTeams}
-                currentUserId={currentUserId}
-                minScore={minScore}
-                maxScore={maxScore}
-                lockInfo={lockInfo}
-                onScoreSubmitted={fetchScores}
-              />
-            );
-          }
-          return (
-            <ReadOnlyCell key={slot.id} slot={slot} roundTeams={roundTeams} />
-          );
-        })}
-
-        {/* Empty state */}
-        {judgeSlots.length === 0 && (
-          <div className="col-span-full text-center py-10 text-slate-400 text-sm">
-            No judges assigned to this round yet.
+      {/* ── Round not started gate ── */}
+      {isScheduled && !lockInfo.isCompleted ? (
+        <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-b from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 px-6 py-14 text-center space-y-5">
+          <div className="text-5xl select-none">🏁</div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+              Round Not Started
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+              Scoring is locked until the Head Judge officially starts this
+              round. All scores will be recorded from that moment.
+            </p>
           </div>
-        )}
-      </div>
+          {canStartRound ? (
+            <button
+              onClick={handleStartRound}
+              disabled={startingRound}
+              className="inline-flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-green-200 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {startingRound ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Starting…
+                </>
+              ) : (
+                <>
+                  <span className="text-lg">▶</span> Start Round Now
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-sm">
+              <span className="animate-pulse">⏳</span>
+              Waiting for the Head Judge to start this round…
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Lock alert banner */}
+          {lockInfo.scoreEditingLocked && !lockInfo.isCompleted && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+              <span>🔒</span>
+              <span>
+                Score editing deadline has passed. Comments can still be edited.
+              </span>
+            </div>
+          )}
 
-      {/* Guest info banner */}
-      {!isJudge && !mySlot && (
-        <p className="text-center text-xs text-slate-400 mt-2">
-          You are viewing this scoring session as an observer. Only assigned
-          judges can submit scores.
-        </p>
+          {/* LIVE indicator */}
+          {lockInfo.roundStatus === "LIVE" && (
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded-lg px-4 py-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Round is LIVE — scoring is open
+            </div>
+          )}
+
+          {/* No-slot warning */}
+          {isJudge && !mySlot && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+              You are listed as a judge for this event but have no slot assigned
+              to this round yet.
+            </div>
+          )}
+
+          {/* Judge cells grid */}
+          <div
+            className={cn(
+              "grid gap-4",
+              judgeSlots.length === 1 && "grid-cols-1 max-w-md mx-auto",
+              judgeSlots.length === 2 && "grid-cols-1 sm:grid-cols-2",
+              judgeSlots.length >= 3 &&
+                "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+            )}
+          >
+            {judgeSlots.map((slot) => {
+              const isMySlot = mySlot?.id === slot.id;
+              if (isMySlot && isJudge && currentUserId) {
+                return (
+                  <MyCell
+                    key={slot.id}
+                    slot={slot}
+                    roundId={roundId}
+                    roundTeams={roundTeams}
+                    currentUserId={currentUserId}
+                    minScore={minScore}
+                    maxScore={maxScore}
+                    lockInfo={lockInfo}
+                    onScoreSubmitted={fetchScores}
+                  />
+                );
+              }
+              return (
+                <ReadOnlyCell
+                  key={slot.id}
+                  slot={slot}
+                  roundTeams={roundTeams}
+                />
+              );
+            })}
+
+            {/* Empty state */}
+            {judgeSlots.length === 0 && (
+              <div className="col-span-full text-center py-10 text-slate-400 dark:text-slate-500 text-sm">
+                No judges assigned to this round yet.
+              </div>
+            )}
+          </div>
+
+          {/* Guest info banner */}
+          {!isJudge && !mySlot && (
+            <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-2">
+              You are viewing this scoring session as an observer. Only assigned
+              judges can submit scores.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
