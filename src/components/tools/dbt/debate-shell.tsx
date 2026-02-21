@@ -983,9 +983,9 @@ export function DebateShell({ eventSlug }: Props) {
 
                           {/* PRO / CON with swap */}
                           {rPro && rCon && (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
-                                <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-sm font-bold border border-emerald-300 dark:border-emerald-700 min-w-22.5">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
                                   PRO
                                 </span>
                                 {rPro.team.name}
@@ -995,13 +995,20 @@ export function DebateShell({ eventSlug }: Props) {
                                   onClick={() => swapTeams(r.id)}
                                   disabled={swappingRoundId === r.id}
                                   title="Swap PRO / CON sides"
-                                  className="text-xs px-2 py-1.5 border border-border rounded-lg bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                                  className="flex items-center gap-1.5 px-3.5 py-2 border-2 border-[#C8A061] rounded-xl bg-[#C8A061]/10 hover:bg-[#C8A061]/20 text-[#C8A061] font-bold text-sm transition-colors disabled:opacity-50 shadow-sm"
                                 >
-                                  {swappingRoundId === r.id ? "…" : "⇄"}
+                                  <span className="text-base leading-none">
+                                    {swappingRoundId === r.id ? "…" : "⇄"}
+                                  </span>
+                                  <span className="text-xs font-semibold tracking-wide">
+                                    {swappingRoundId === r.id
+                                      ? "Swapping"
+                                      : "Swap"}
+                                  </span>
                                 </button>
                               )}
-                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-700 dark:text-red-400 text-xs font-semibold border border-red-200 dark:border-red-800">
-                                <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">
+                              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-500/10 text-red-700 dark:text-red-400 text-sm font-bold border border-red-300 dark:border-red-700 min-w-22.5">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
                                   CON
                                 </span>
                                 {rCon.team.name}
