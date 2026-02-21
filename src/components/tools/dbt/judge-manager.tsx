@@ -52,6 +52,11 @@ export function JudgeManager({ eventId }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Alias editing
+  const [editAliasId, setEditAliasId] = useState<string | null>(null);
+  const [editAliasValue, setEditAliasValue] = useState("");
+  const [savingAlias, setSavingAlias] = useState(false);
   const [activeInputMode, setActiveInputMode] = useState<"search" | "email">(
     "search",
   );
@@ -209,6 +214,59 @@ export function JudgeManager({ eventId }: Props) {
     }
   };
 
+  const toggleHeadJudge = async (judgeId: string, makeHead: boolean) => {
+    const msg = makeHead
+      ? "Make this judge the Head Judge? Any existing Head Judge will be demoted."
+      : "Remove Head Judge role from this judge?";
+    if (!confirm(msg)) return;
+    try {
+      const res = await fetch(
+        `/api/tools/dbt/events/${eventId}/judges/${judgeId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isHeadJudge: makeHead }),
+        },
+      );
+      if (res.ok) {
+        await fetchJudges();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update judge role");
+      }
+    } catch {
+      alert("Network error");
+    }
+  };
+
+  const hasHeadJudge = judges.some((j) => j.isHeadJudge);
+
+  const updateAlias = async (judgeId: string, newAlias: string) => {
+    if (!newAlias.trim()) return;
+    setSavingAlias(true);
+    try {
+      const res = await fetch(
+        `/api/tools/dbt/events/${eventId}/judges/${judgeId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ alias: newAlias.trim() }),
+        },
+      );
+      if (res.ok) {
+        await fetchJudges();
+        setEditAliasId(null);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update alias");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setSavingAlias(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Assign judge form */}
@@ -220,7 +278,7 @@ export function JudgeManager({ eventId }: Props) {
           <button
             onClick={() => {
               setActiveInputMode("search");
-              resetForm();
+              setError("");
             }}
             className={cn(
               "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
@@ -233,8 +291,12 @@ export function JudgeManager({ eventId }: Props) {
           </button>
           <button
             onClick={() => {
+              // If the search field looks like an email, carry it over
+              if (!manualEmail && searchQuery.includes("@")) {
+                setManualEmail(searchQuery);
+              }
               setActiveInputMode("email");
-              resetForm();
+              setError("");
             }}
             className={cn(
               "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
@@ -387,16 +449,29 @@ export function JudgeManager({ eventId }: Props) {
                 className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
               />
             </div>
-            <div className="flex items-end pb-0.5">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex flex-col justify-end gap-1 pb-0.5">
+              <label
+                className={cn(
+                  "flex items-center gap-2",
+                  hasHeadJudge
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer",
+                )}
+              >
                 <input
                   type="checkbox"
                   checked={isHeadJudge}
+                  disabled={hasHeadJudge}
                   onChange={(e) => setIsHeadJudge(e.target.checked)}
                   className="w-4 h-4 rounded border-slate-200 accent-amber-500"
                 />
                 <span className="text-sm text-slate-700">Head Judge</span>
               </label>
+              {hasHeadJudge && (
+                <p className="text-[10px] text-amber-600 leading-tight">
+                  A Head Judge is already assigned.
+                </p>
+              )}
             </div>
           </div>
 
@@ -452,9 +527,52 @@ export function JudgeManager({ eventId }: Props) {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-800 text-sm">
-                      {j.alias}
-                    </span>
+                    {editAliasId === j.id ? (
+                      <form
+                        className="flex items-center gap-1"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          updateAlias(j.id, editAliasValue);
+                        }}
+                      >
+                        <input
+                          autoFocus
+                          value={editAliasValue}
+                          onChange={(e) => setEditAliasValue(e.target.value)}
+                          className="border border-border rounded px-2 py-0.5 text-sm text-foreground bg-card focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 w-28"
+                        />
+                        <button
+                          type="submit"
+                          disabled={savingAlias || !editAliasValue.trim()}
+                          className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded px-1.5 py-1 font-medium disabled:opacity-50"
+                        >
+                          {savingAlias ? "…" : "✓"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditAliasId(null)}
+                          className="text-[10px] bg-muted hover:bg-accent text-muted-foreground rounded px-1.5 py-1"
+                        >
+                          ✕
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <span className="font-semibold text-slate-800 text-sm">
+                          {j.alias}
+                        </span>
+                        <button
+                          title="Edit alias"
+                          onClick={() => {
+                            setEditAliasId(j.id);
+                            setEditAliasValue(j.alias);
+                          }}
+                          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors text-xs"
+                        >
+                          ✎
+                        </button>
+                      </>
+                    )}
                     {j.isHeadJudge && (
                       <span className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">
                         HEAD
@@ -480,12 +598,29 @@ export function JudgeManager({ eventId }: Props) {
                     assigned
                   </p>
                 </div>
-                <button
-                  onClick={() => removeJudge(j.id)}
-                  className="shrink-0 text-xs text-slate-400 hover:text-red-500 border border-slate-200 rounded px-2 py-1 transition-colors"
-                >
-                  Remove
-                </button>
+                <div className="shrink-0 flex flex-col gap-1.5">
+                  {j.isHeadJudge ? (
+                    <button
+                      onClick={() => toggleHeadJudge(j.id, false)}
+                      className="text-[10px] text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded px-2 py-1 transition-colors font-medium whitespace-nowrap"
+                    >
+                      Remove Head
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => toggleHeadJudge(j.id, true)}
+                      className="text-[10px] text-slate-500 border border-slate-200 hover:border-amber-300 hover:text-amber-700 rounded px-2 py-1 transition-colors whitespace-nowrap"
+                    >
+                      Make Head Judge
+                    </button>
+                  )}
+                  <button
+                    onClick={() => removeJudge(j.id)}
+                    className="text-[10px] text-slate-400 hover:text-red-500 border border-slate-200 rounded px-2 py-1 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
