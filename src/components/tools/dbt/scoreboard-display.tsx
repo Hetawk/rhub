@@ -14,6 +14,7 @@ interface JudgeTotals {
   proTotal: number;
   conTotal: number;
   winner: "PRO" | "CON" | "TIE";
+  isPadded?: boolean;
 }
 
 export function ScoreboardDisplay({ roundId }: Props) {
@@ -74,6 +75,25 @@ export function ScoreboardDisplay({ roundId }: Props) {
         },
       );
 
+      // If exactly 2 judges, add a synthetic 3rd slot (panel average)
+      if (totals.length === 2) {
+        const avgPro = (totals[0].proTotal + totals[1].proTotal) / 2;
+        const avgCon = (totals[0].conTotal + totals[1].conTotal) / 2;
+        totals.push({
+          judgeAlias: "Panel Avg",
+          position: 3,
+          proTotal: avgPro,
+          conTotal: avgCon,
+          winner:
+            avgPro > avgCon
+              ? ("PRO" as const)
+              : avgCon > avgPro
+                ? ("CON" as const)
+                : ("TIE" as const),
+          isPadded: true,
+        });
+      }
+
       setJudgeTotals(totals);
       setAudienceVotes(data.audienceVotes || { pro: 0, con: 0 });
     } catch (e) {
@@ -106,6 +126,17 @@ export function ScoreboardDisplay({ roundId }: Props) {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* 2-judge panel average banner */}
+        {judgeTotals.some((jt) => jt.isPadded) && (
+          <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <span className="shrink-0 font-bold">⚠</span>
+            <span>
+              <strong>2 of 3 judge slots active.</strong> J3 (Panel Avg) is
+              automatically calculated as the average of J1 and J2 scores.
+            </span>
+          </div>
+        )}
+
         {/* Per-judge scores */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -123,9 +154,21 @@ export function ScoreboardDisplay({ roundId }: Props) {
             </thead>
             <tbody>
               {judgeTotals.map((jt) => (
-                <tr key={jt.position} className="border-b last:border-0">
+                <tr
+                  key={jt.position}
+                  className={cn(
+                    "border-b last:border-0",
+                    jt.isPadded &&
+                      "opacity-70 italic border-dashed bg-amber-50/50",
+                  )}
+                >
                   <td className="px-3 py-2 font-medium">
                     J{jt.position}: {jt.judgeAlias}
+                    {jt.isPadded && (
+                      <span className="ml-1.5 text-xs not-italic font-normal text-amber-600">
+                        (auto)
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-center font-mono text-emerald-700 font-bold">
                     {fmtScore(jt.proTotal)}

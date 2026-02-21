@@ -141,6 +141,9 @@ export function DebateShell({ eventSlug }: Props) {
   );
   const [addSlotJudgeId, setAddSlotJudgeId] = useState("");
   const [removingSlotKey, setRemovingSlotKey] = useState<string | null>(null);
+  const [autoAssigningRoundId, setAutoAssigningRoundId] = useState<
+    string | null
+  >(null);
 
   // Check auth
   useEffect(() => {
@@ -378,6 +381,29 @@ export function DebateShell({ eventSlug }: Props) {
       }
     } catch {
       alert("Network error");
+    }
+  };
+
+  // Auto-assign all unassigned event judges to a round
+  const autoAssignAllJudges = async (
+    roundId: string,
+    judges: { id: string }[],
+  ) => {
+    if (!judges.length) return;
+    setAutoAssigningRoundId(roundId);
+    try {
+      for (const j of judges) {
+        await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ judgeId: j.id }),
+        });
+      }
+      if (eventSlug) await fetchEvent(eventSlug);
+    } catch {
+      alert("Network error while auto-assigning judges");
+    } finally {
+      setAutoAssigningRoundId(null);
     }
   };
 
@@ -917,33 +943,45 @@ export function DebateShell({ eventSlug }: Props) {
                           )}
 
                           {/* Judge slots */}
-                          <div className="space-y-1.5">
-                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                              Judge Panel
-                            </p>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                                Judge Panel
+                              </p>
+                              {r.judgeSlots.length > 0 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {r.judgeSlots.length} assigned
+                                </span>
+                              )}
+                            </div>
+
                             {r.judgeSlots.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">
-                                No judges assigned to this round yet.
+                              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                                No judges assigned to this round yet. Use the
+                                buttons below to assign.
                               </p>
                             ) : (
-                              <div className="flex flex-wrap gap-1.5">
+                              <div className="flex flex-wrap gap-2">
                                 {r.judgeSlots
                                   .slice()
                                   .sort((a, b) => a.position - b.position)
                                   .map((slot) => (
                                     <div
                                       key={slot.id}
-                                      className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg text-xs"
+                                      className={cn(
+                                        "group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                                        slot.judge.isHeadJudge
+                                          ? "bg-[#C8A061]/10 border-[#C8A061]/40 text-[#1F1C18] dark:text-[#C8A061]"
+                                          : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300",
+                                      )}
                                     >
-                                      <span className="text-muted-foreground font-mono">
+                                      <span className="font-mono text-[10px] opacity-60">
                                         J{slot.position}
                                       </span>
-                                      <span className="font-medium text-foreground">
-                                        {slot.judge.alias}
-                                      </span>
+                                      <span>{slot.judge.alias}</span>
                                       {slot.judge.isHeadJudge && (
-                                        <span className="text-[9px] bg-ekd-gold/20 text-ekd-dark-brown dark:text-ekd-gold px-1 py-0.5 rounded font-bold">
-                                          HD
+                                        <span className="text-[9px] bg-[#C8A061] text-white px-1 py-0.5 rounded font-bold uppercase tracking-wide">
+                                          HEAD
                                         </span>
                                       )}
                                       {!r.completedAt && (
@@ -952,9 +990,12 @@ export function DebateShell({ eventSlug }: Props) {
                                             removeJudgeFromSlot(r.id, slot.id)
                                           }
                                           disabled={removingSlotKey === slot.id}
-                                          className="text-muted-foreground/40 hover:text-red-500 transition-colors ml-0.5"
+                                          title="Remove from this round"
+                                          className="ml-0.5 w-4 h-4 flex items-center justify-center rounded text-current opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-all disabled:opacity-30"
                                         >
-                                          ✕
+                                          {removingSlotKey === slot.id
+                                            ? "…"
+                                            : "✕"}
                                         </button>
                                       )}
                                     </div>
@@ -962,56 +1003,72 @@ export function DebateShell({ eventSlug }: Props) {
                               </div>
                             )}
 
-                            {/* Add judge to slot */}
-                            {!r.completedAt &&
-                              availableJudges.length > 0 &&
-                              (addingSlotRoundId === r.id ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <select
-                                    value={addSlotJudgeId}
-                                    onChange={(e) =>
-                                      setAddSlotJudgeId(e.target.value)
-                                    }
-                                    className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ekd-gold/40"
-                                  >
-                                    <option value="">Select judge…</option>
-                                    {availableJudges.map((j) => (
-                                      <option key={j.id} value={j.id}>
-                                        {j.alias}
-                                        {j.isHeadJudge ? " (Head)" : ""}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    onClick={() =>
-                                      addJudgeToSlot(r.id, addSlotJudgeId)
-                                    }
-                                    disabled={!addSlotJudgeId}
-                                    className="px-3 py-1.5 bg-ekd-gold hover:bg-ekd-light-gold text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
-                                  >
-                                    Assign
-                                  </button>
+                            {/* Assign judges buttons */}
+                            {!r.completedAt && availableJudges.length > 0 && (
+                              <div className="space-y-1.5 pt-0.5">
+                                {/* Assign all at once */}
+                                <button
+                                  onClick={() =>
+                                    autoAssignAllJudges(r.id, availableJudges)
+                                  }
+                                  disabled={autoAssigningRoundId === r.id}
+                                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-[#C8A061] hover:bg-[#D4AF6A] active:bg-[#b8904f] text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors shadow-sm"
+                                >
+                                  {autoAssigningRoundId === r.id
+                                    ? "Assigning…"
+                                    : `+ Assign all unassigned judges (${availableJudges.length})`}
+                                </button>
+
+                                {/* Or assign one specific judge */}
+                                {addingSlotRoundId === r.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={addSlotJudgeId}
+                                      onChange={(e) =>
+                                        setAddSlotJudgeId(e.target.value)
+                                      }
+                                      className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ekd-gold/40"
+                                    >
+                                      <option value="">Select judge…</option>
+                                      {availableJudges.map((j) => (
+                                        <option key={j.id} value={j.id}>
+                                          {j.alias}
+                                          {j.isHeadJudge ? " (Head)" : ""}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      onClick={() =>
+                                        addJudgeToSlot(r.id, addSlotJudgeId)
+                                      }
+                                      disabled={!addSlotJudgeId}
+                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
+                                    >
+                                      Assign
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setAddingSlotRoundId(null);
+                                        setAddSlotJudgeId("");
+                                      }}
+                                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button
                                     onClick={() => {
-                                      setAddingSlotRoundId(null);
+                                      setAddingSlotRoundId(r.id);
                                       setAddSlotJudgeId("");
                                     }}
-                                    className="text-xs text-muted-foreground hover:text-foreground"
+                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-dashed border-border rounded-lg text-xs text-muted-foreground hover:text-foreground hover:border-[#C8A061]/50 hover:bg-[#C8A061]/5 transition-colors"
                                   >
-                                    Cancel
+                                    + Assign a specific judge
                                   </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setAddingSlotRoundId(r.id);
-                                    setAddSlotJudgeId("");
-                                  }}
-                                  className="text-xs text-ekd-gold hover:text-ekd-light-gold font-medium transition-colors"
-                                >
-                                  + Add Judge to Round
-                                </button>
-                              ))}
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

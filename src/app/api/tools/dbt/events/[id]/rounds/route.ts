@@ -71,6 +71,22 @@ export async function POST(req: NextRequest, { params }: Params) {
     });
     const roundNum = (lastRound?.roundNum ?? 0) + 1;
 
+    // Auto-assign all event judges if no explicit slots provided
+    let judgeSlotData = data.judgeSlots;
+    if (!judgeSlotData?.length) {
+      const eventJudges = await prisma.debateJudge.findMany({
+        where: { eventId: id },
+        orderBy: [{ isHeadJudge: "desc" }, { id: "asc" }],
+        select: { id: true },
+      });
+      if (eventJudges.length > 0) {
+        judgeSlotData = eventJudges.map((j, i) => ({
+          judgeId: j.id,
+          position: i + 1,
+        }));
+      }
+    }
+
     const round = await prisma.debateRound.create({
       data: {
         eventId: id,
@@ -97,9 +113,9 @@ export async function POST(req: NextRequest, { params }: Params) {
             },
           ],
         },
-        judgeSlots: data.judgeSlots?.length
+        judgeSlots: judgeSlotData?.length
           ? {
-              create: data.judgeSlots.map((js) => ({
+              create: judgeSlotData.map((js) => ({
                 judgeId: js.judgeId,
                 position: js.position,
               })),

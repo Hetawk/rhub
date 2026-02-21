@@ -145,8 +145,7 @@ function RegisterForm() {
         );
         return;
       }
-      router.push(redirectTo);
-      router.refresh();
+      window.location.href = redirectTo;
     } catch {
       setVerifyError("Network error. Please try again.");
     } finally {

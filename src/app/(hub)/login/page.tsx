@@ -49,8 +49,7 @@ function LoginForm() {
         setError(data.error || "Login failed. Please check your credentials.");
         return;
       }
-      router.push(redirectTo);
-      router.refresh();
+      window.location.href = redirectTo;
     } catch {
       setError("Network error. Please try again.");
     } finally {

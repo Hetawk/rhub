@@ -6,6 +6,63 @@ import { cookies } from "next/headers";
 
 type Params = { params: Promise<{ id: string; judgeId: string }> };
 
+// PATCH /api/tools/dbt/events/[id]/judges/[judgeId] — Update judge (isHeadJudge, alias)
+export async function PATCH(req: NextRequest, { params }: Params) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const user = await validateSession(token);
+    if (!user || !canManage(user.role))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { id, judgeId } = await params;
+    const body = await req.json();
+
+    const judge = await prisma.debateJudge.findFirst({
+      where: { id: judgeId, eventId: id },
+    });
+    if (!judge)
+      return NextResponse.json({ error: "Judge not found" }, { status: 404 });
+
+    const updates: { isHeadJudge?: boolean; alias?: string } = {};
+
+    if (typeof body.isHeadJudge === "boolean") {
+      if (body.isHeadJudge) {
+        // Demote any existing head judge first
+        await prisma.debateJudge.updateMany({
+          where: { eventId: id, isHeadJudge: true },
+          data: { isHeadJudge: false },
+        });
+      }
+      updates.isHeadJudge = body.isHeadJudge;
+    }
+
+    if (typeof body.alias === "string" && body.alias.trim()) {
+      updates.alias = body.alias.trim();
+    }
+
+    const updated = await prisma.debateJudge.update({
+      where: { id: judgeId },
+      data: updates,
+      include: {
+        user: { select: { id: true, name: true, email: true, role: true } },
+        slots: { select: { id: true, roundId: true, position: true } },
+      },
+    });
+
+    return NextResponse.json({ judge: updated });
+  } catch (error) {
+    console.error("Update judge error:", error);
+    return NextResponse.json(
+      { error: "Failed to update judge" },
+      { status: 500 },
+    );
+  }
+}
+
 // DELETE /api/tools/dbt/events/[id]/judges/[judgeId]
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
