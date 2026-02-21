@@ -328,7 +328,7 @@ model DebateEvent {
     createdAt   DateTime          @default(now())
     updatedAt   DateTime          @updatedAt
 
-    creator User?         @relation("EventCreator", fields: [createdBy], references: [id])
+    creator User?         @relation("EventCreator", fields: [createdBy], references: [id], onDelete: SetNull)
     rounds  DebateRound[]
     teams   DebateTeam[]
     judges  DebateJudge[]
@@ -359,7 +359,7 @@ model DebateTeamMember {
     role   String? // "1st Speaker", "2nd Speaker"
 
     team DebateTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
-    user User?      @relation(fields: [userId], references: [id])
+    user User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
     @@index([teamId])
     @@index([userId])
@@ -438,7 +438,7 @@ model DebateJudge {
     inviteSentAt DateTime? // when invite was sent
 
     event DebateEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-    user  User        @relation(fields: [userId], references: [id])
+    user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
     slots JudgeSlot[]
 
     @@unique([eventId, userId])
