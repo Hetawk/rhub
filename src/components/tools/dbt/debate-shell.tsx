@@ -7,6 +7,7 @@ import { JudgeCellView } from "./judge-cell-view";
 import { JudgeManager } from "./judge-manager";
 import { AudienceVoting } from "./audience-voting";
 import { ScoreboardDisplay } from "./scoreboard-display";
+import { ScoringProgressTicker } from "./scoring-progress-ticker";
 import { SpeechTimer } from "./speech-timer";
 import { AuthForm } from "./auth-form";
 import { CriteriaGuide } from "./criteria-guide";
@@ -1346,6 +1347,9 @@ export function DebateShell({ eventSlug }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* Pending-submission ticker — sits between the toggle and the scoring view */}
+              <ScoringProgressTicker roundId={selectedRound.id} />
 
               {viewMode === "cell" ? (
                 <JudgeCellView

@@ -8,6 +8,13 @@ interface Props {
   roundId: string;
 }
 
+interface MissingSpeech {
+  key: string;
+  shortLabel: string;
+  /** e.g. "PRO", "CON", or "PRO + CON" */
+  sidesLabel: string;
+}
+
 interface JudgeTotals {
   judgeAlias: string;
   position: number;
@@ -15,6 +22,10 @@ interface JudgeTotals {
   conTotal: number;
   winner: "PRO" | "CON" | "TIE";
   isPadded?: boolean;
+  /** Speeches that still have no final (non-draft) submission for this judge */
+  missingSpeeches: MissingSpeech[];
+  /** True if all speeches are in but the total somehow breaches [140,210] */
+  outOfRange: boolean;
 }
 
 export function ScoreboardDisplay({ roundId }: Props) {
@@ -35,36 +46,89 @@ export function ScoreboardDisplay({ roundId }: Props) {
         (t: { side: string }) => t.side === "CON",
       );
 
-      // Calculate per-judge totals
-      const totals: JudgeTotals[] = data.round.judgeSlots.map(
+      // Calculate per-judge totals, tracking real submissions vs drafts
+      type ScoredSlot = JudgeTotals & { hasScores: boolean };
+      const rawTotals: ScoredSlot[] = data.round.judgeSlots.map(
         (slot: { id: string; position: number; judge: { alias: string } }) => {
           let proTotal = 0;
           let conTotal = 0;
+          let hasScores = false;
+
+          // Submitted (non-draft) speech keys per side for this judge
+          const submittedPro = new Set<string>();
+          const submittedCon = new Set<string>();
 
           if (proTeam) {
-            proTotal = proTeam.scores
-              .filter((s: { slot: { id: string } }) => s.slot.id === slot.id)
-              .reduce(
-                (sum: number, s: { totalScore: number | null }) =>
-                  sum + (s.totalScore || 0),
-                0,
+            const proScores = proTeam.scores.filter(
+              (s: { slot: { id: string } }) => s.slot.id === slot.id,
+            );
+            if (proScores.length > 0) hasScores = true;
+            proTotal = proScores.reduce(
+              (sum: number, s: { totalScore: number | null }) =>
+                sum + (s.totalScore || 0),
+              0,
+            );
+            proScores
+              .filter((s: { isDraft: boolean }) => !s.isDraft)
+              .forEach((s: { speechType: string }) =>
+                submittedPro.add(s.speechType),
               );
           }
           if (conTeam) {
-            conTotal = conTeam.scores
-              .filter((s: { slot: { id: string } }) => s.slot.id === slot.id)
-              .reduce(
-                (sum: number, s: { totalScore: number | null }) =>
-                  sum + (s.totalScore || 0),
-                0,
+            const conScores = conTeam.scores.filter(
+              (s: { slot: { id: string } }) => s.slot.id === slot.id,
+            );
+            if (conScores.length > 0) hasScores = true;
+            conTotal = conScores.reduce(
+              (sum: number, s: { totalScore: number | null }) =>
+                sum + (s.totalScore || 0),
+              0,
+            );
+            conScores
+              .filter((s: { isDraft: boolean }) => !s.isDraft)
+              .forEach((s: { speechType: string }) =>
+                submittedCon.add(s.speechType),
               );
           }
+
+          // Determine which speeches still need a final submission
+          const missingSpeeches: MissingSpeech[] = SPEECH_TYPES.reduce(
+            (acc, st) => {
+              const proMissing = !submittedPro.has(st.key);
+              const conMissing = !submittedCon.has(st.key);
+              if (proMissing || conMissing) {
+                const sides: string[] = [];
+                if (proMissing) sides.push("PRO");
+                if (conMissing) sides.push("CON");
+                acc.push({
+                  key: st.key,
+                  shortLabel: st.shortLabel,
+                  sidesLabel: sides.join(" + "),
+                });
+              }
+              return acc;
+            },
+            [] as MissingSpeech[],
+          );
+
+          // outOfRange is a defensive check: all speeches submitted but total
+          // somehow breaches the validated [140, 210] bounds.
+          const allSubmitted = missingSpeeches.length === 0;
+          const outOfRange =
+            allSubmitted &&
+            (proTotal < SCORING.MIN_JUDGE_TOTAL ||
+              proTotal > SCORING.MAX_JUDGE_TOTAL ||
+              conTotal < SCORING.MIN_JUDGE_TOTAL ||
+              conTotal > SCORING.MAX_JUDGE_TOTAL);
 
           return {
             judgeAlias: slot.judge.alias,
             position: slot.position,
             proTotal,
             conTotal,
+            hasScores,
+            missingSpeeches,
+            outOfRange,
             winner:
               proTotal > conTotal
                 ? ("PRO" as const)
@@ -75,15 +139,58 @@ export function ScoreboardDisplay({ roundId }: Props) {
         },
       );
 
-      // If exactly 2 judges, add a synthetic 3rd slot (panel average)
-      if (totals.length === 2) {
-        const avgPro = (totals[0].proTotal + totals[1].proTotal) / 2;
-        const avgCon = (totals[0].conTotal + totals[1].conTotal) / 2;
-        totals.push({
+      // Helper: clamp a synthetic judge total to the valid full-round range.
+      // A fully-scored judge must be in [MIN_JUDGE_TOTAL, MAX_JUDGE_TOTAL] = [140, 210].
+      const clampJudgeTotal = (v: number) =>
+        Math.min(SCORING.MAX_JUDGE_TOTAL, Math.max(SCORING.MIN_JUDGE_TOTAL, v));
+
+      // Synthesize scores for any judge slot that has no submissions yet,
+      // using the panel average of judges who have scored, clamped to valid range.
+      const activeJudges = rawTotals.filter((jt) => jt.hasScores);
+      if (activeJudges.length > 0 && activeJudges.length < rawTotals.length) {
+        const avgPro = clampJudgeTotal(
+          activeJudges.reduce((s, jt) => s + jt.proTotal, 0) /
+            activeJudges.length,
+        );
+        const avgCon = clampJudgeTotal(
+          activeJudges.reduce((s, jt) => s + jt.conTotal, 0) /
+            activeJudges.length,
+        );
+        rawTotals.forEach((jt) => {
+          if (!jt.hasScores) {
+            jt.proTotal = avgPro;
+            jt.conTotal = avgCon;
+            jt.winner =
+              avgPro > avgCon
+                ? ("PRO" as const)
+                : avgCon > avgPro
+                  ? ("CON" as const)
+                  : ("TIE" as const);
+            jt.isPadded = true;
+            // Synthetic slot — no real submissions expected, clear pending list
+            jt.missingSpeeches = [];
+            jt.outOfRange = false;
+          }
+        });
+      }
+
+      // If there are exactly 2 real judge slots (and none were synthesised above),
+      // push a panel-average entry as a tiebreaker 3rd vote, clamped to valid range.
+      if (rawTotals.length === 2 && !rawTotals.some((jt) => jt.isPadded)) {
+        const avgPro = clampJudgeTotal(
+          (rawTotals[0].proTotal + rawTotals[1].proTotal) / 2,
+        );
+        const avgCon = clampJudgeTotal(
+          (rawTotals[0].conTotal + rawTotals[1].conTotal) / 2,
+        );
+        rawTotals.push({
           judgeAlias: "Panel Avg",
           position: 3,
           proTotal: avgPro,
           conTotal: avgCon,
+          hasScores: false,
+          missingSpeeches: [],
+          outOfRange: false,
           winner:
             avgPro > avgCon
               ? ("PRO" as const)
@@ -94,7 +201,7 @@ export function ScoreboardDisplay({ roundId }: Props) {
         });
       }
 
-      setJudgeTotals(totals);
+      setJudgeTotals(rawTotals);
       setAudienceVotes(data.audienceVotes || { pro: 0, con: 0 });
     } catch (e) {
       console.error("Scoreboard fetch error:", e);
@@ -129,16 +236,39 @@ export function ScoreboardDisplay({ roundId }: Props) {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* 2-judge panel average banner */}
-        {judgeTotals.some((jt) => jt.isPadded) && (
-          <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-            <span className="shrink-0 font-bold">⚠</span>
-            <span>
-              <strong>2 of 3 judge slots active.</strong> J3 (Panel Avg) is
-              automatically calculated as the average of J1 and J2 scores.
-            </span>
-          </div>
-        )}
+        {/* Synthetic score banner — shown whenever any slot is padded */}
+        {judgeTotals.some((jt) => jt.isPadded) &&
+          (() => {
+            const absentSlots = judgeTotals.filter(
+              (jt) => jt.isPadded && jt.judgeAlias !== "Panel Avg",
+            );
+            const activeCount = judgeTotals.filter((jt) => !jt.isPadded).length;
+            const realSlotCount = judgeTotals.filter(
+              (jt) => jt.judgeAlias !== "Panel Avg",
+            ).length;
+            return (
+              <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <span className="shrink-0 font-bold">⚠</span>
+                {absentSlots.length > 0 ? (
+                  <span>
+                    <strong>
+                      {activeCount} of {realSlotCount} judges active.
+                    </strong>{" "}
+                    {absentSlots.map((j) => j.judgeAlias).join(", ")}{" "}
+                    {absentSlots.length === 1 ? "has" : "have"} not submitted
+                    scores — their score{absentSlots.length > 1 ? "s" : ""} are
+                    auto-calculated as the panel average of active judges.
+                  </span>
+                ) : (
+                  <span>
+                    <strong>2 of 3 judge slots active.</strong> J3 (Panel Avg)
+                    is automatically calculated as the average of J1 and J2
+                    scores.
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
         {/* Per-judge scores table */}
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
@@ -178,6 +308,19 @@ export function ScoreboardDisplay({ roundId }: Props) {
                     {jt.isPadded && (
                       <span className="ml-1.5 text-[10px] not-italic font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
                         auto
+                      </span>
+                    )}
+                    {!jt.isPadded && jt.missingSpeeches.length > 0 && (
+                      <span
+                        className="ml-1.5 text-[10px] not-italic font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded"
+                        title={`Missing: ${jt.missingSpeeches.map((m) => `${m.shortLabel} (${m.sidesLabel})`).join(", ")}`}
+                      >
+                        {jt.missingSpeeches.length} pending
+                      </span>
+                    )}
+                    {!jt.isPadded && jt.outOfRange && (
+                      <span className="ml-1.5 text-[10px] not-italic font-semibold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded">
+                        ⛔ out of range
                       </span>
                     )}
                   </td>
