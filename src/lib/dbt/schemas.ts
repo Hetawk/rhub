@@ -211,11 +211,22 @@ export const submitScoreSchema = z.object({
 });
 
 // ---- Audience vote schema (head judge enters counts) ----
+// Audience vote is always a 5-vote split: PRO 3/CON 2 or PRO 2/CON 3.
 
-export const audienceVoteSchema = z.object({
-  proVotes: z.number().int().min(0, "Votes cannot be negative"),
-  conVotes: z.number().int().min(0, "Votes cannot be negative"),
-});
+export const audienceVoteSchema = z
+  .object({
+    proVotes: z.number().int(),
+    conVotes: z.number().int(),
+  })
+  .refine(
+    (d) =>
+      (d.proVotes === 3 && d.conVotes === 2) ||
+      (d.proVotes === 2 && d.conVotes === 3),
+    {
+      message:
+        "Audience vote must be a 5-vote split: either PRO 3 / CON 2 or PRO 2 / CON 3.",
+    },
+  );
 
 // ---- Complete round (lock game) ----
 

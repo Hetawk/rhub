@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { SIDE_COLORS } from "@/lib/dbt";
+
+// Audience vote is always a 5-vote split: either PRO 3 / CON 2 or PRO 2 / CON 3.
+const TOTAL_VOTES = 5;
+const VOTE_OPTIONS: { pro: number; con: number }[] = [
+  { pro: 3, con: 2 },
+  { pro: 2, con: 3 },
+];
 
 interface Props {
   roundId: string;
@@ -15,9 +21,9 @@ interface Props {
 }
 
 /**
- * Audience vote entry — head judge enters vote counts manually.
- * Audience does NOT login or self-serve; the head judge tallies audience votes
- * and enters the numbers here.
+ * Audience vote entry — head judge or admin selects the split.
+ * Only two valid distributions: PRO 3/CON 2  or  PRO 2/CON 3.
+ * Selecting one auto-mirrors the other.
  */
 export function AudienceVoting({
   roundId,
@@ -26,8 +32,9 @@ export function AudienceVoting({
   canEdit,
   isCompleted,
 }: Props) {
-  const [pro, setPro] = useState(0);
-  const [con, setCon] = useState(0);
+  // null = not yet set
+  const [pro, setPro] = useState<number | null>(null);
+  const [con, setCon] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -37,8 +44,16 @@ export function AudienceVoting({
       const res = await fetch(`/api/tools/dbt/rounds/${roundId}/vote`);
       if (res.ok) {
         const data = await res.json();
-        setPro(data.pro ?? 0);
-        setCon(data.con ?? 0);
+        const p = data.pro ?? 0;
+        const c = data.con ?? 0;
+        // Only show if a valid split has been saved
+        if (p + c === TOTAL_VOTES && (p === 2 || p === 3)) {
+          setPro(p);
+          setCon(c);
+        } else {
+          setPro(null);
+          setCon(null);
+        }
       }
     } catch {
       /* silent */
@@ -49,7 +64,18 @@ export function AudienceVoting({
     fetchVotes();
   }, [fetchVotes]);
 
+  /** When user picks PRO votes, CON is automatically the complement. */
+  const selectPro = (proVotes: number) => {
+    setPro(proVotes);
+    setCon(TOTAL_VOTES - proVotes);
+    setError("");
+  };
+
   const submit = async () => {
+    if (pro === null || con === null) {
+      setError("Please select a vote split before saving.");
+      return;
+    }
     setSaving(true);
     setError("");
     setSaved(false);
@@ -76,126 +102,216 @@ export function AudienceVoting({
     }
   };
 
-  const total = pro + con;
-  const proPercent = total > 0 ? Math.round((pro / total) * 100) : 50;
-  const conPercent = total > 0 ? Math.round((con / total) * 100) : 50;
+  const proDisplay = pro ?? 0;
+  const conDisplay = con ?? 0;
+  const proPercent = Math.round((proDisplay / TOTAL_VOTES) * 100);
+  const conPercent = 100 - proPercent;
+  const hasSelection = pro !== null;
 
   return (
-    <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-      <div className="bg-slate-800 px-4 py-3 text-center">
-        <h3 className="text-white font-semibold">Audience Vote</h3>
-        <p className="text-slate-400 text-xs mt-0.5">
+    <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="bg-[#182e5f] dark:bg-[#0f1e40] px-4 py-3 text-center">
+        <h3 className="text-white font-semibold tracking-wide">
+          Audience Vote
+        </h3>
+        <p className="text-slate-300 dark:text-slate-400 text-xs mt-0.5">
           Entered by Head Judge / Admin
         </p>
       </div>
 
       <div className="p-6 space-y-5">
-        {/* Vote count inputs */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* PRO */}
-          <div className="text-center space-y-2">
-            <label
-              className={cn(
-                "block text-sm font-semibold",
-                SIDE_COLORS.PRO.text,
-              )}
-            >
-              PRO
-            </label>
-            <p className="text-xs text-slate-500 truncate">{proTeamName}</p>
-            {canEdit && !isCompleted ? (
-              <input
-                type="number"
-                min={0}
-                value={pro}
-                onChange={(e) =>
-                  setPro(Math.max(0, parseInt(e.target.value) || 0))
-                }
-                className="w-full text-center text-3xl font-bold py-3 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 focus:outline-none"
-              />
-            ) : (
-              <p className="text-3xl font-bold text-emerald-700">{pro}</p>
-            )}
-          </div>
+        {/* Instruction */}
+        {canEdit && !isCompleted && (
+          <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+            Select which side received more audience votes.
+            <br />
+            <span className="font-medium text-slate-600 dark:text-slate-300">
+              Total is always 5 votes — winner gets 3, runner-up gets 2.
+            </span>
+          </p>
+        )}
 
-          {/* CON */}
-          <div className="text-center space-y-2">
-            <label
-              className={cn(
-                "block text-sm font-semibold",
-                SIDE_COLORS.CON.text,
-              )}
-            >
-              CON
-            </label>
-            <p className="text-xs text-slate-500 truncate">{conTeamName}</p>
-            {canEdit && !isCompleted ? (
-              <input
-                type="number"
-                min={0}
-                value={con}
-                onChange={(e) =>
-                  setCon(Math.max(0, parseInt(e.target.value) || 0))
-                }
-                className="w-full text-center text-3xl font-bold py-3 border-2 border-red-200 rounded-xl focus:ring-2 focus:ring-red-400 focus:border-red-400 focus:outline-none"
-              />
-            ) : (
-              <p className="text-3xl font-bold text-red-700">{con}</p>
-            )}
+        {/* Option buttons (edit mode) */}
+        {canEdit && !isCompleted ? (
+          <div className="grid grid-cols-2 gap-3">
+            {VOTE_OPTIONS.map((opt) => {
+              const isSelected = pro === opt.pro;
+              const isPro = opt.pro > opt.con;
+              return (
+                <button
+                  key={opt.pro}
+                  onClick={() => selectPro(opt.pro)}
+                  className={cn(
+                    "relative flex flex-col items-center gap-1 rounded-xl border-2 px-4 py-5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1",
+                    isPro
+                      ? isSelected
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 ring-emerald-300"
+                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10"
+                      : isSelected
+                        ? "border-red-500 bg-red-50 dark:bg-red-900/30 ring-red-300"
+                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-900/10",
+                  )}
+                >
+                  {isSelected && (
+                    <span
+                      className={cn(
+                        "absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded",
+                        isPro
+                          ? "bg-emerald-500 text-white"
+                          : "bg-red-500 text-white",
+                      )}
+                    >
+                      ✓
+                    </span>
+                  )}
+
+                  {/* PRO pill */}
+                  <div className="flex items-center gap-2 w-full justify-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 w-7 text-right">
+                      PRO
+                    </span>
+                    <span
+                      className={cn(
+                        "text-2xl font-black tabular-nums",
+                        opt.pro > opt.con
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-slate-600 dark:text-slate-300",
+                      )}
+                    >
+                      {opt.pro}
+                    </span>
+                  </div>
+
+                  <span className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">
+                    vs
+                  </span>
+
+                  {/* CON pill */}
+                  <div className="flex items-center gap-2 w-full justify-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 w-7 text-right">
+                      CON
+                    </span>
+                    <span
+                      className={cn(
+                        "text-2xl font-black tabular-nums",
+                        opt.con > opt.pro
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-slate-600 dark:text-slate-300",
+                      )}
+                    >
+                      {opt.con}
+                    </span>
+                  </div>
+
+                  {/* Team label */}
+                  <span
+                    className={cn(
+                      "mt-1 text-[10px] font-semibold truncate w-full text-center",
+                      isPro
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-red-600 dark:text-red-400",
+                    )}
+                  >
+                    {isPro ? proTeamName : conTeamName} wins
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </div>
+        ) : (
+          /* Read-only display */
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                PRO
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {proTeamName}
+              </p>
+              <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                {proDisplay}
+              </p>
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+                CON
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {conTeamName}
+              </p>
+              <p className="text-3xl font-black text-red-600 dark:text-red-400">
+                {conDisplay}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Save button */}
         {canEdit && !isCompleted && (
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <button
               onClick={submit}
-              disabled={saving}
-              className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              disabled={saving || !hasSelection}
+              className={cn(
+                "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
+                hasSelection
+                  ? "bg-[#C8A061] hover:bg-[#b8904f] text-white shadow-sm"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed",
+                saving && "opacity-60",
+              )}
             >
               {saving ? "Saving..." : "Save Audience Votes"}
             </button>
             {saved && (
-              <p className="text-sm text-emerald-600 mt-2">Votes saved!</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                Votes saved!
+              </p>
             )}
-            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            )}
           </div>
         )}
 
         {isCompleted && (
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">
             Round completed — votes are final.
           </p>
         )}
 
-        {/* Results bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className={cn("font-medium", SIDE_COLORS.PRO.text)}>
-              PRO: {pro} ({proPercent}%)
-            </span>
-            <span className={cn("font-medium", SIDE_COLORS.CON.text)}>
-              CON: {con} ({conPercent}%)
-            </span>
+        {/* Results ratio bar */}
+        {hasSelection && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-semibold">
+              <span className="text-emerald-600 dark:text-emerald-400">
+                PRO: {proDisplay} ({proPercent}%)
+              </span>
+              <span className="text-red-600 dark:text-red-400">
+                CON: {conDisplay} ({conPercent}%)
+              </span>
+            </div>
+            <div className="h-3 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800">
+              <div
+                className="bg-emerald-500 dark:bg-emerald-600 transition-all duration-500 rounded-l-full"
+                style={{ width: `${proPercent}%` }}
+              />
+              <div
+                className="bg-red-500 dark:bg-red-600 transition-all duration-500 rounded-r-full"
+                style={{ width: `${conPercent}%` }}
+              />
+            </div>
+            <p className="text-center text-xs text-slate-400 dark:text-slate-500">
+              Ratio: {proDisplay} : {conDisplay} (Total {TOTAL_VOTES} votes)
+            </p>
           </div>
-          <div className="h-4 rounded-full overflow-hidden flex bg-slate-100">
-            {total > 0 && (
-              <>
-                <div
-                  className="bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${proPercent}%` }}
-                />
-                <div
-                  className="bg-red-500 transition-all duration-500"
-                  style={{ width: `${conPercent}%` }}
-                />
-              </>
-            )}
-          </div>
-          <p className="text-center text-xs text-slate-400">
-            Total: {total} vote{total !== 1 ? "s" : ""}
+        )}
+
+        {!hasSelection && !canEdit && (
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500 italic">
+            No audience votes recorded.
           </p>
-        </div>
+        )}
       </div>
     </div>
   );
