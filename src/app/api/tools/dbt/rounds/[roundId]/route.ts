@@ -178,15 +178,37 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           { status: 403 },
         );
       }
-      const [t1, t2] = round.roundTeams;
-      if (t1 && t2) {
-        const newSide1 = t2.side; // t1 takes t2's side
-        const newSide2 = t1.side; // t2 takes t1's side
-        // Use a single conditional UPDATE to atomically swap (MySQL: unique checks per row)
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`DebateRoundTeam\` SET side = CASE id WHEN '${t1.id}' THEN '${newSide1}' WHEN '${t2.id}' THEN '${newSide2}' END WHERE id IN ('${t1.id}', '${t2.id}')`,
+      const proTeam = round.roundTeams.find((rt) => rt.side === "PRO");
+      const conTeam = round.roundTeams.find((rt) => rt.side === "CON");
+
+      if (!proTeam || !conTeam) {
+        return NextResponse.json(
+          { error: "Round must have both a PRO and a CON team to swap" },
+          { status: 400 },
         );
       }
+
+      // MySQL InnoDB checks uniqueness per-row within a statement, so a single
+      // CASE UPDATE on @@unique([roundId, side]) causes a transient duplicate
+      // violation. Fix: swap the teamId references (keeping side labels fixed)
+      // via a 3-step inside a transaction.
+      //
+      //  Before: proRow(side=PRO, teamId=A)  conRow(side=CON, teamId=B)
+      //  After:  proRow(side=PRO, teamId=B)  conRow(side=CON, teamId=A)
+      //
+      // Step 1: move proRow's teamId to a sentinel — temporarily disable FK
+      //         checks so the placeholder doesn't need to exist in DebateTeam.
+      //         The placeholder is unique enough to avoid @@unique([roundId,teamId]).
+      // Step 2: set conRow's teamId → A (no conflict: proRow is on placeholder).
+      // Step 3: set proRow's teamId → B (no conflict: conRow now holds A).
+      const PLACEHOLDER = `__swap_${proTeam.id}`;
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET foreign_key_checks=0`);
+        await tx.$executeRaw`UPDATE \`DebateRoundTeam\` SET teamId = ${PLACEHOLDER} WHERE id = ${proTeam.id}`;
+        await tx.$executeRaw`UPDATE \`DebateRoundTeam\` SET teamId = ${proTeam.teamId} WHERE id = ${conTeam.id}`;
+        await tx.$executeRaw`UPDATE \`DebateRoundTeam\` SET teamId = ${conTeam.teamId} WHERE id = ${proTeam.id}`;
+        await tx.$executeRawUnsafe(`SET foreign_key_checks=1`);
+      });
     }
 
     // Return updated round
