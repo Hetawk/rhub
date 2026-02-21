@@ -2,25 +2,34 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { validateSessionFull } from "@/lib/auth";
 
+// Helper to create a no-cache response
+function noCache(data: unknown, status = 200) {
+  const res = NextResponse.json(data, { status });
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.headers.set("Pragma", "no-cache");
+  res.headers.set("Expires", "0");
+  return res;
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
     if (!token) {
-      return NextResponse.json({ user: null });
+      return noCache({ user: null });
     }
 
     const result = await validateSessionFull(token);
 
     if (!result) {
       cookieStore.delete("auth_token");
-      return NextResponse.json({ user: null });
+      return noCache({ user: null });
     }
 
     const { user, sessionCreatedAt } = result;
 
-    const res = NextResponse.json({
+    return noCache({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -29,10 +38,8 @@ export async function GET() {
       roleChangedAt: user.roleChangedAt ?? null,
       sessionCreatedAt: sessionCreatedAt.toISOString(),
     });
-    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-    return res;
   } catch (error) {
     console.error("Me error:", error);
-    return NextResponse.json({ user: null }, { status: 500 });
+    return noCache({ user: null }, 500);
   }
 }
