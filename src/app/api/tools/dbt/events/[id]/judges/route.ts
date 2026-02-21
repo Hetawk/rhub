@@ -95,6 +95,19 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
       }
 
+      // Check for duplicate assignment
+      const existingAssignment = await prisma.debateJudge.findUnique({
+        where: { eventId_userId: { eventId: id, userId: judgeUser.id } },
+      });
+      if (existingAssignment) {
+        return NextResponse.json(
+          {
+            error: `${existingAssignment.alias || judgeUser.name} is already assigned to this event.`,
+          },
+          { status: 409 },
+        );
+      }
+
       // Generate inviteToken for new users (account setup flow)
       const inviteToken = isNewUser
         ? genOTP() + genOTP() + genOTP()

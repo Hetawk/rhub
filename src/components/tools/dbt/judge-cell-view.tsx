@@ -74,6 +74,7 @@ interface Props {
   currentUserId?: string;
   isJudge: boolean;
   canStartRound?: boolean;
+  canManageRound?: boolean;
   minScore?: number;
   maxScore?: number;
 }
@@ -500,6 +501,7 @@ function MyCell({
 }) {
   const restoredRef = useRef(false);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdown = useCountdown(lockInfo.scoreLockDeadline);
 
   const [drafts, setDrafts] = useState<
@@ -513,9 +515,6 @@ function MyCell({
   const [activeSpeech, setActiveSpeech] = useState<SpeechTypeKey>(
     SPEECH_TYPES[0].key,
   );
-  // Track previous speech for auto-submit on tab leave
-  const prevSpeechRef = useRef<SpeechTypeKey>(SPEECH_TYPES[0].key);
-
   const proTeam = roundTeams.find((t) => t.side === "PRO");
   const conTeam = roundTeams.find((t) => t.side === "CON");
 
@@ -572,26 +571,35 @@ function MyCell({
     };
   }, [drafts, comments, roundId, currentUserId]);
 
-  // Auto-submit complete drafts when judge navigates away from a speech tab
-  useEffect(() => {
-    const prev = prevSpeechRef.current;
-    prevSpeechRef.current = activeSpeech;
-    if (prev === activeSpeech) return;
-    const prevCriteria = SPEECH_CRITERIA[prev] ?? [];
-    if (prevCriteria.length === 0) return;
-    for (const team of [proTeam, conTeam]) {
-      if (!team) continue;
-      if (getExisting(team.id, prev)) continue; // already submitted
-      const teamDrafts = drafts[team.id]?.[prev] ?? {};
-      const allFilled =
-        prevCriteria.length > 0 &&
-        prevCriteria.every((c) => typeof teamDrafts[c.key] === "number");
-      if (allFilled) handleSubmit(team.id, prev);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSpeech]);
-
   const isScoreLocked = lockInfo.isCompleted || lockInfo.scoreEditingLocked;
+
+  // Live-sync draft criteria scores to server so other judges see updates in real time
+  const syncDraftToServer = useCallback(
+    (
+      teamId: string,
+      speechType: string,
+      criteriaScores: Record<string, number>,
+    ) => {
+      if (syncRef.current) clearTimeout(syncRef.current);
+      syncRef.current = setTimeout(async () => {
+        try {
+          await fetch(`/api/tools/dbt/rounds/${roundId}/scores`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              roundTeamId: teamId,
+              speechType,
+              criteriaScores,
+            }),
+          });
+          onScoreSubmitted(); // refresh ReadOnlyCell polling
+        } catch {
+          /* silent — draft sync failures are non-critical */
+        }
+      }, 400);
+    },
+    [roundId, onScoreSubmitted],
+  );
 
   const handleSubmit = async (roundTeamId: string, speechType: string) => {
     const key = `${roundTeamId}-${speechType}`;
@@ -718,7 +726,7 @@ function MyCell({
             spCrit.every(
               (c) => typeof drafts[conTeam.id]?.[sp.key]?.[c.key] === "number",
             );
-          const willAutoLock = (proDraftFull || conDraftFull) && !done;
+          const hasDraftProgress = (proDraftFull || conDraftFull) && !done;
           return (
             <button
               key={sp.key}
@@ -730,11 +738,14 @@ function MyCell({
                   : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                 done && "text-emerald-600 dark:text-emerald-400",
                 partial && "text-amber-500 dark:text-amber-400",
-                willAutoLock && "text-blue-600 dark:text-blue-400",
+                hasDraftProgress &&
+                  !partial &&
+                  !done &&
+                  "text-violet-600 dark:text-violet-400",
               )}
             >
               {sp.shortLabel}
-              {done ? " ✓" : partial ? " ·" : willAutoLock ? " ⚡" : ""}
+              {done ? " ✓" : partial ? " ·" : hasDraftProgress ? " ●" : ""}
             </button>
           );
         })}
@@ -775,7 +786,9 @@ function MyCell({
           const side = team.side;
           const sc = SIDE_COLORS[side];
           const existing = getExisting(team.id, speech.key);
-          const isEditable = !isScoreLocked && !existing;
+          const isRoundPaused = lockInfo.roundStatus === "PAUSED";
+          const isEditable = !isScoreLocked && !existing && !isRoundPaused;
+          const isPausedBlocked = isRoundPaused && !existing;
           const draftScores = drafts[team.id]?.[speech.key] || {};
           const submitKey = `${team.id}-${speech.key}`;
           const isSubmitting = submitting === submitKey;
@@ -900,18 +913,20 @@ function MyCell({
                         min={minScore}
                         max={maxScore}
                         disabled={!isEditable}
-                        onChange={(v) =>
+                        onChange={(v) => {
+                          const newScores = {
+                            ...drafts[team.id]?.[speech.key],
+                            [c.key]: v,
+                          };
                           setDrafts((prev) => ({
                             ...prev,
                             [team.id]: {
                               ...prev[team.id],
-                              [speech.key]: {
-                                ...prev[team.id]?.[speech.key],
-                                [c.key]: v,
-                              },
+                              [speech.key]: newScores,
                             },
-                          }))
-                        }
+                          }));
+                          syncDraftToServer(team.id, speech.key, newScores);
+                        }}
                       />
                     </div>
                   ))}
@@ -934,15 +949,14 @@ function MyCell({
                     }
                   />
 
-                  {/* Auto-lock notice when all criteria are filled */}
-                  {allCriteriaFilled && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <span className="text-blue-500 dark:text-blue-400 text-sm shrink-0">
-                        ⚡
+                  {/* Paused notice */}
+                  {isPausedBlocked && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                      <span className="text-orange-500 text-sm shrink-0">
+                        ⏸
                       </span>
-                      <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-tight">
-                        All criteria filled — will auto-submit when you move to
-                        the next speech tab.
+                      <p className="text-[11px] text-orange-700 dark:text-orange-300 leading-tight">
+                        Game is paused — scoring suspended
                       </p>
                     </div>
                   )}
@@ -954,7 +968,8 @@ function MyCell({
                       !isEditable ||
                       !allCriteriaFilled ||
                       isSubmitting ||
-                      isScoreLocked
+                      isScoreLocked ||
+                      isRoundPaused
                     }
                     className={cn(
                       "w-full py-2 rounded-lg text-xs font-semibold transition-all",
@@ -965,9 +980,11 @@ function MyCell({
                   >
                     {isSubmitting
                       ? "Submitting…"
-                      : isScoreLocked
-                        ? "Scoring Locked"
-                        : "Submit Score"}
+                      : isRoundPaused
+                        ? "⏸ Paused"
+                        : isScoreLocked
+                          ? "Scoring Locked"
+                          : "Submit Score"}
                   </button>
                 </div>
               )}
@@ -986,6 +1003,7 @@ export function JudgeCellView({
   currentUserId,
   isJudge,
   canStartRound = false,
+  canManageRound = false,
   minScore = SCORING.MIN_CRITERIA,
   maxScore = SCORING.MAX_CRITERIA,
 }: Props) {
@@ -1001,6 +1019,10 @@ export function JudgeCellView({
   const [loading, setLoading] = useState(true);
   const [startingRound, setStartingRound] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
+  const [pausingRound, setPausingRound] = useState(false);
+  const [resumingRound, setResumingRound] = useState(false);
+  const [resettingRound, setResettingRound] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const fetchScores = useCallback(async () => {
     try {
@@ -1057,6 +1079,70 @@ export function JudgeCellView({
     }
   };
 
+  const handlePauseRound = async () => {
+    setPausingRound(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pauseRound: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to pause round");
+        return;
+      }
+      await fetchScores();
+    } catch {
+      alert("Network error — could not pause round");
+    } finally {
+      setPausingRound(false);
+    }
+  };
+
+  const handleResumeRound = async () => {
+    setResumingRound(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeRound: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to resume round");
+        return;
+      }
+      await fetchScores();
+    } catch {
+      alert("Network error — could not resume round");
+    } finally {
+      setResumingRound(false);
+    }
+  };
+
+  const doResetRound = async () => {
+    setShowResetConfirm(false);
+    setResettingRound(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetRound: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to reset round");
+        return;
+      }
+      await fetchScores();
+    } catch {
+      alert("Network error — could not reset round");
+    } finally {
+      setResettingRound(false);
+    }
+  };
+
   useEffect(() => {
     fetchScores();
     const id = setInterval(fetchScores, 3000);
@@ -1074,6 +1160,8 @@ export function JudgeCellView({
   const proTeam = roundTeams.find((t) => t.side === "PRO");
   const conTeam = roundTeams.find((t) => t.side === "CON");
   const isScheduled = lockInfo.roundStatus === "SCHEDULED";
+  const isPaused = lockInfo.roundStatus === "PAUSED";
+  const isRoundStarted = !isScheduled && !lockInfo.isCompleted;
 
   return (
     <div className="space-y-6">
@@ -1191,6 +1279,131 @@ export function JudgeCellView({
         </div>
       ) : (
         <>
+          {/* ── PAUSED global banner (all users) ── */}
+          {isPaused && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-orange-50 dark:bg-orange-900/25 border-2 border-orange-300 dark:border-orange-700 rounded-xl px-4 py-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-3xl shrink-0 select-none">⏸</span>
+                <div className="min-w-0">
+                  <p className="font-bold text-orange-800 dark:text-orange-300 text-sm leading-tight">
+                    Game Paused
+                  </p>
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5 leading-relaxed">
+                    {canManageRound
+                      ? "Scoring is suspended. Resume when you're ready to continue, or reset to wipe all scores and start fresh."
+                      : "The Head Judge has temporarily paused this round. Scoring is suspended until the game resumes."}
+                  </p>
+                </div>
+              </div>
+              {canManageRound && (
+                <div className="flex gap-2 shrink-0 w-full sm:w-auto">
+                  <button
+                    onClick={handleResumeRound}
+                    disabled={resumingRound}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg shadow transition-colors disabled:opacity-60"
+                  >
+                    {resumingRound ? (
+                      <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <span>▶</span>
+                    )}
+                    {resumingRound ? "Resuming…" : "Resume"}
+                  </button>
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white dark:bg-slate-800 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400 text-xs font-semibold rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors"
+                  >
+                    🔄 Reset
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Game Controls bar (head judge / admin, round started) ── */}
+          {canManageRound &&
+            isRoundStarted &&
+            !lockInfo.isCompleted &&
+            !isPaused && (
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Game Controls
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded font-medium">
+                    LIVE
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePauseRound}
+                    disabled={pausingRound}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+                  >
+                    {pausingRound ? (
+                      <span className="w-3 h-3 border-2 border-orange-400/40 border-t-orange-500 rounded-full animate-spin" />
+                    ) : (
+                      <span>⏸</span>
+                    )}
+                    {pausingRound ? "Pausing…" : "Pause Game"}
+                  </button>
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 border border-slate-200 dark:border-slate-600 hover:border-red-200 dark:hover:border-red-800 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    🔄 Reset Scores
+                  </button>
+                </div>
+              </div>
+            )}
+
+          {/* ── Reset confirmation panel ── */}
+          {showResetConfirm && (
+            <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-2xl p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0 select-none">⚠️</span>
+                <div className="space-y-1.5">
+                  <p className="font-bold text-red-800 dark:text-red-300 text-sm">
+                    Reset All Scores?
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+                    This will{" "}
+                    <strong>permanently delete all submitted scores</strong> for
+                    this round. All judges will need to re-enter their scores
+                    from scratch. This cannot be undone.
+                  </p>
+                  <p className="text-[11px] text-red-600 dark:text-red-500 italic">
+                    The round will remain live — judges can begin scoring again
+                    immediately after reset.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={doResetRound}
+                  disabled={resettingRound}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {resettingRound ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Resetting…
+                    </span>
+                  ) : (
+                    "Yes, Reset All Scores"
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Lock alert banner */}
           {lockInfo.scoreEditingLocked && !lockInfo.isCompleted && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">

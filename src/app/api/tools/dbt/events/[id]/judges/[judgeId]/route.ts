@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateSession } from "@/lib/auth";
 import { canManage } from "@/lib/dbt/schemas";
+import { genOTP } from "@/lib/dbt/utils";
+import { sendAccountSetupEmail } from "@/lib/mail";
 import { cookies } from "next/headers";
 
 type Params = { params: Promise<{ id: string; judgeId: string }> };
@@ -26,6 +28,41 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
     if (!judge)
       return NextResponse.json({ error: "Judge not found" }, { status: 404 });
+
+    // Handle resend invite
+    if (body.resendInvite === true) {
+      if (!judge.inviteEmail) {
+        return NextResponse.json(
+          { error: "No invite email on record for this judge" },
+          { status: 400 },
+        );
+      }
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || "https://rhub.ekddigital.com";
+      const newToken = genOTP() + genOTP() + genOTP();
+      await prisma.debateJudge.update({
+        where: { id: judgeId },
+        data: { inviteToken: newToken, inviteSentAt: new Date() },
+      });
+      const judgeWithDetails = await prisma.debateJudge.findUnique({
+        where: { id: judgeId },
+        include: {
+          user: { select: { name: true } },
+          event: { select: { title: true } },
+        },
+      });
+      if (judgeWithDetails) {
+        const setupLink = `${siteUrl}/register?token=${newToken}&email=${encodeURIComponent(judge.inviteEmail)}`;
+        await sendAccountSetupEmail(
+          judge.inviteEmail,
+          judgeWithDetails.user.name,
+          judgeWithDetails.event.title,
+          setupLink,
+          judge.alias,
+        );
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     const updates: { isHeadJudge?: boolean; alias?: string } = {};
 

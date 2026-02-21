@@ -16,4 +16,14 @@
 
 ✓ Starting...
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
-✓ Ready in 1888ms
+✓ Ready in 1560ms
+○ Compiling / ...
+ GET / 200 in 4.7s (compile: 3.7s, proxy.ts: 48ms, render: 981ms)
+ GET /auth/login 404 in 391ms (compile: 325ms, proxy.ts: 13ms, render: 53ms)
+ GET / 200 in 295ms (compile: 13ms, proxy.ts: 7ms, render: 275ms)
+ GET /login 200 in 599ms (compile: 543ms, proxy.ts: 7ms, render: 48ms)
+ GET /api/auth/me 200 in 427ms (compile: 360ms, proxy.ts: 8ms, render: 59ms)
+ GET /api/auth/me 200 in 428ms (compile: 408ms, proxy.ts: 9ms, render: 10ms)
+ GET /api/auth/me 200 in 428ms (compile: 410ms, proxy.ts: 9ms, render: 9ms)
+ GET /api/auth/me 200 in 12ms (compile: 3ms, proxy.ts: 5ms, render: 4ms)
+ GET /api/auth/google?state=%2Fdashboard 307 in 186ms (compile: 161ms, proxy.ts: 17ms, render: 8ms)

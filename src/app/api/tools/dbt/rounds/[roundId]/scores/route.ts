@@ -79,6 +79,144 @@ export async function GET(_req: NextRequest, { params }: Params) {
   }
 }
 
+// PATCH /api/tools/dbt/rounds/[roundId]/scores — Live-sync draft criteria scores (no lock timer)
+export async function PATCH(req: NextRequest, { params }: Params) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await validateSession(token);
+    if (!user || !canScore(user.role))
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { roundId } = await params;
+
+    const round = await prisma.debateRound.findUnique({
+      where: { id: roundId },
+      include: { event: { select: { minScore: true, maxScore: true } } },
+    });
+    if (!round)
+      return NextResponse.json({ error: "Round not found" }, { status: 404 });
+    if (round.completedAt)
+      return NextResponse.json(
+        { error: "Round is completed" },
+        { status: 403 },
+      );
+    if (round.status === "PAUSED")
+      return NextResponse.json(
+        {
+          error:
+            "Game is currently paused. Scoring is suspended until the Head Judge resumes the round.",
+        },
+        { status: 403 },
+      );
+    if (round.status === "SCHEDULED")
+      return NextResponse.json({ error: "Round not started" }, { status: 403 });
+    if (
+      round.scoreLockDeadline &&
+      new Date(round.scoreLockDeadline) < new Date()
+    ) {
+      return NextResponse.json(
+        { error: "Score editing locked" },
+        { status: 403 },
+      );
+    }
+
+    const { roundTeamId, speechType, criteriaScores } = await req.json();
+    if (!roundTeamId || !speechType || !criteriaScores) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    const slot = await prisma.judgeSlot.findFirst({
+      where: { roundId, judge: { userId: user.id } },
+    });
+    if (!slot)
+      return NextResponse.json(
+        { error: "Not assigned as judge" },
+        { status: 403 },
+      );
+
+    // Check existing score isn't locked
+    const existing = await prisma.speechScore.findUnique({
+      where: {
+        slotId_roundTeamId_speechType: {
+          slotId: slot.id,
+          roundTeamId,
+          speechType,
+        },
+      },
+    });
+    if (existing?.isLocked)
+      return NextResponse.json({ error: "Score is locked" }, { status: 403 });
+    if (existing?.lockedAt && existing.lockedAt <= new Date()) {
+      return NextResponse.json(
+        { error: "Score lock time has passed" },
+        { status: 403 },
+      );
+    }
+
+    const speechKey = speechType as SpeechTypeKey;
+    const criteriaDefs = SPEECH_CRITERIA[speechKey];
+    if (!criteriaDefs)
+      return NextResponse.json(
+        { error: "Invalid speech type" },
+        { status: 400 },
+      );
+    const minScore = round.event?.minScore ?? SCORING.MIN_CRITERIA;
+    const maxScore = round.event?.maxScore ?? SCORING.MAX_CRITERIA;
+
+    // Only save provided criteria (partial draft is OK)
+    const validScores: Record<string, number> = {};
+    for (const [key, val] of Object.entries(criteriaScores)) {
+      const n = Number(val);
+      if (!isNaN(n) && n >= minScore && n <= maxScore) validScores[key] = n;
+    }
+
+    const totalScore = Object.values(validScores).reduce((s, v) => s + v, 0);
+
+    if (!existing) {
+      await prisma.speechScore.create({
+        data: {
+          slotId: slot.id,
+          roundTeamId,
+          speechType,
+          totalScore,
+          criteria: {
+            create: Object.entries(validScores).map(([criteriaKey, score]) => ({
+              criteriaKey,
+              score,
+            })),
+          },
+        },
+      });
+    } else {
+      // Update without touching lockedAt (live-sync only)
+      await prisma.speechScore.update({
+        where: { id: existing.id },
+        data: {
+          totalScore,
+          criteria: {
+            deleteMany: {},
+            create: Object.entries(validScores).map(([criteriaKey, score]) => ({
+              criteriaKey,
+              score,
+            })),
+          },
+        },
+      });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Draft sync error:", error);
+    return NextResponse.json(
+      { error: "Failed to sync draft" },
+      { status: 500 },
+    );
+  }
+}
+
 // POST /api/tools/dbt/rounds/[roundId]/scores — Submit/update score
 export async function POST(req: NextRequest, { params }: Params) {
   try {
@@ -107,6 +245,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (round.completedAt) {
       return NextResponse.json(
         { error: "Game is completed. No further score edits allowed." },
+        { status: 403 },
+      );
+    }
+
+    // Block scoring when round is paused
+    if (round.status === "PAUSED") {
+      return NextResponse.json(
+        {
+          error:
+            "Game is currently paused. Scoring is suspended until the Head Judge resumes the round.",
+        },
         { status: 403 },
       );
     }

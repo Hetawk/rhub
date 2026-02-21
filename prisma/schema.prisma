@@ -61,6 +61,7 @@ enum DebateEventStatus {
 enum DebateRoundStatus {
     SCHEDULED
     LIVE
+    PAUSED
     SCORING
     COMPLETED
     CANCELLED
@@ -384,6 +385,10 @@ model DebateRound {
     // Audience votes (entered by head judge, not self-serve)
     audienceProVotes Int @default(0)
     audienceConVotes Int @default(0)
+
+    // Pause: scoring suspended but round not ended
+    pausedAt DateTime?
+    pausedBy String? // userId who paused
 
     // Lock: once COMPLETED, no more edits
     completedAt DateTime?

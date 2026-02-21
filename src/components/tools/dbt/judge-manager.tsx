@@ -67,6 +67,10 @@ export function JudgeManager({ eventId }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(
+    null,
+  );
+  const [resendSuccessId, setResendSuccessId] = useState<string | null>(null);
 
   // Alias editing
   const [editAliasId, setEditAliasId] = useState<string | null>(null);
@@ -234,6 +238,22 @@ export function JudgeManager({ eventId }: Props) {
         return;
       }
 
+      // Client-side duplicate check
+      const targetEmail =
+        activeInputMode === "search"
+          ? selectedUser?.email
+          : manualEmail.trim().toLowerCase();
+      if (targetEmail) {
+        const dup = judges.find(
+          (j) => j.user.email.toLowerCase() === targetEmail.toLowerCase(),
+        );
+        if (dup) {
+          setError(`${dup.alias} is already assigned to this event.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const res = await fetch(`/api/tools/dbt/events/${eventId}/judges`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -268,6 +288,33 @@ export function JudgeManager({ eventId }: Props) {
       await fetchJudges();
     } catch {
       /* silently ignore */
+    }
+  };
+
+  const resendInvite = async (judgeId: string) => {
+    setResendingInviteId(judgeId);
+    setResendSuccessId(null);
+    try {
+      const res = await fetch(
+        `/api/tools/dbt/events/${eventId}/judges/${judgeId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resendInvite: true }),
+        },
+      );
+      if (res.ok) {
+        setResendSuccessId(judgeId);
+        setTimeout(() => setResendSuccessId(null), 4000);
+        await fetchJudges();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to resend invite");
+      }
+    } catch {
+      alert("Network error — please try again.");
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
@@ -775,6 +822,19 @@ export function JudgeManager({ eventId }: Props) {
                   >
                     Remove
                   </button>
+                  {j.inviteEmail && (
+                    <button
+                      onClick={() => resendInvite(j.id)}
+                      disabled={resendingInviteId === j.id}
+                      className="text-[10px] text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {resendingInviteId === j.id
+                        ? "Sending…"
+                        : resendSuccessId === j.id
+                          ? "Sent ✓"
+                          : "Resend Invite"}
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

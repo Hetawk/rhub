@@ -1353,6 +1353,7 @@ export function DebateShell({ eventSlug }: Props) {
                   currentUserId={user?.id}
                   isJudge={isJudge}
                   canStartRound={isHeadJudgeOrAbove(user, event)}
+                  canManageRound={isHeadJudgeOrAbove(user, event)}
                   minScore={event.minScore}
                   maxScore={event.maxScore}
                 />

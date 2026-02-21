@@ -195,7 +195,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       const spacing = W / (logos.length + 1);
       logos.forEach((logo, i) => {
         const x = spacing * (i + 1) - 60;
-        logoElements += `<image href="${logo.src}" x="${x}" y="20" width="120" height="60" preserveAspectRatio="xMidYMid meet"/>`;
+        logoElements += `<image xlink:href="${logo.src}" x="${x}" y="20" width="120" height="60" preserveAspectRatio="xMidYMid meet"/>`;
       });
     }
 
@@ -230,13 +230,13 @@ export async function GET(req: NextRequest, { params }: Params) {
 
           <!-- Round title + topic -->
           <text x="30" y="40" font-size="20" font-weight="700" fill="#F1F5F9" font-family="system-ui,sans-serif">${escSvg(r.roundTitle)}</text>
-          <text x="30" y="64" font-size="14" fill="#94A3B8" font-family="system-ui,sans-serif">&ldquo;${escSvg(r.topic.slice(0, 80))}${r.topic.length > 80 ? "…" : ""}&rdquo;</text>
+          <text x="30" y="64" font-size="14" fill="#94A3B8" font-family="system-ui,sans-serif">&#8220;${escSvg(r.topic.slice(0, 80))}${r.topic.length > 80 ? "&#8230;" : ""}&#8221;</text>
 
           <!-- PRO team -->
           <rect x="30" y="85" width="200" height="50" rx="10" fill="${proWinner ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.05)"}" stroke="${proWinner ? "#34D399" : "rgba(255,255,255,0.1)"}" stroke-width="${proWinner ? "2" : "1"}"/>
           <text x="130" y="107" font-size="13" fill="#94A3B8" font-family="system-ui,sans-serif" text-anchor="middle">PRO</text>
           <text x="130" y="126" font-size="16" font-weight="700" fill="${proWinner ? "#34D399" : "#F1F5F9"}" font-family="system-ui,sans-serif" text-anchor="middle">${escSvg(r.proTeam)}</text>
-          ${proWinner ? `<image href="${trophyB64}" x="228" y="90" width="36" height="36"/>` : ""}
+          ${proWinner ? `<image xlink:href="${trophyB64}" x="228" y="90" width="36" height="36"/>` : ""}
 
           <!-- VS -->
           <text x="${W / 2 - 60}" y="118" font-size="18" font-weight="900" fill="#64748B" font-family="system-ui,sans-serif" text-anchor="middle">VS</text>
@@ -245,7 +245,7 @@ export async function GET(req: NextRequest, { params }: Params) {
           <rect x="${W - 260}" y="85" width="200" height="50" rx="10" fill="${conWinner ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.05)"}" stroke="${conWinner ? "#F87171" : "rgba(255,255,255,0.1)"}" stroke-width="${conWinner ? "2" : "1"}"/>
           <text x="${W - 160}" y="107" font-size="13" fill="#94A3B8" font-family="system-ui,sans-serif" text-anchor="middle">CON</text>
           <text x="${W - 160}" y="126" font-size="16" font-weight="700" fill="${conWinner ? "#F87171" : "#F1F5F9"}" font-family="system-ui,sans-serif" text-anchor="middle">${escSvg(r.conTeam)}</text>
-          ${conWinner ? `<image href="${trophyB64}" x="${W - 276}" y="90" width="36" height="36"/>` : ""}
+          ${conWinner ? `<image xlink:href="${trophyB64}" x="${W - 276}" y="90" width="36" height="36"/>` : ""}
 
           <!-- Tie text -->
           ${tie ? `<text x="${W / 2 - 60}" y="145" font-size="13" fill="#F59E0B" font-family="system-ui,sans-serif" text-anchor="middle">TIE</text>` : ""}
