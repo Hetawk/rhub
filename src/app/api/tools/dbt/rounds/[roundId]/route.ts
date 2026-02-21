@@ -27,9 +27,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const { roundId } = await params;
     const body = await req.json().catch(() => ({}));
-    const { topic, swapTeams } = body as {
+    const { topic, swapTeams, startRound } = body as {
       topic?: string;
       swapTeams?: boolean;
+      startRound?: boolean;
     };
 
     const round = await prisma.debateRound.findUnique({
@@ -43,6 +44,31 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         { error: "Round is already completed" },
         { status: 400 },
       );
+
+    // Start round: SCHEDULED → LIVE
+    if (startRound) {
+      // Allow JUDGE_ADMIN+ OR the head judge of this event
+      const isHeadJudge = await prisma.debateJudge.findFirst({
+        where: { eventId: round.eventId, userId: user.id, isHeadJudge: true },
+      });
+      if (!canManage(user.role) && !isHeadJudge) {
+        return NextResponse.json(
+          { error: "Only the Head Judge or an admin can start this round" },
+          { status: 403 },
+        );
+      }
+      if (round.status !== "SCHEDULED") {
+        return NextResponse.json(
+          { error: "Round is already started" },
+          { status: 400 },
+        );
+      }
+      const started = await prisma.debateRound.update({
+        where: { id: roundId },
+        data: { status: "LIVE", startTime: new Date() },
+      });
+      return NextResponse.json({ round: started });
+    }
 
     // Update topic
     if (topic !== undefined && String(topic).trim()) {

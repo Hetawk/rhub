@@ -328,11 +328,13 @@ export function JudgeManager({ eventId }: Props) {
   return (
     <div className="space-y-6">
       {/* Assign judge form */}
-      <div className="border rounded-xl bg-white shadow-sm p-5">
-        <h3 className="font-semibold text-slate-800 mb-4">Assign Judge</h3>
+      <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 p-5">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">
+          Assign Judge
+        </h3>
 
         {/* Mode tabs */}
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-4 w-fit">
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-4 w-fit">
           <button
             onClick={() => {
               setActiveInputMode("search");
@@ -341,8 +343,8 @@ export function JudgeManager({ eventId }: Props) {
             className={cn(
               "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
               activeInputMode === "search"
-                ? "bg-white shadow-sm text-slate-800"
-                : "text-slate-500",
+                ? "bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100"
+                : "text-slate-500 dark:text-slate-400",
             )}
           >
             Search Existing Users
@@ -359,8 +361,8 @@ export function JudgeManager({ eventId }: Props) {
             className={cn(
               "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
               activeInputMode === "email"
-                ? "bg-white shadow-sm text-slate-800"
-                : "text-slate-500",
+                ? "bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100"
+                : "text-slate-500 dark:text-slate-400",
             )}
           >
             Invite by Email
@@ -371,7 +373,7 @@ export function JudgeManager({ eventId }: Props) {
           {activeInputMode === "search" ? (
             /* User search dropdown */
             <div className="relative" ref={dropdownRef}>
-              <label className="text-xs font-medium text-slate-600 block mb-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">
                 Search users by name or email
               </label>
               <input
@@ -385,7 +387,7 @@ export function JudgeManager({ eventId }: Props) {
                   searchResults.length > 0 && setShowDropdown(true)
                 }
                 placeholder="Type a name or email…"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-transparent"
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-[#C8A061]/40 focus:border-transparent dark:bg-slate-800/50 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               {searching && (
                 <div className="absolute right-3 top-8.5">
@@ -394,17 +396,21 @@ export function JudgeManager({ eventId }: Props) {
               )}
               {/* Dropdown */}
               {showDropdown && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg dark:shadow-slate-900/60 overflow-hidden">
                   {searchResults.map((u) => (
                     <button
                       key={u.id}
                       type="button"
                       onClick={() => selectUser(u)}
-                      className="w-full px-3 py-2.5 flex items-center justify-between text-sm hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                      className="w-full px-3 py-2.5 flex items-center justify-between text-sm hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors border-b border-slate-50 dark:border-slate-700/50 last:border-0"
                     >
                       <div className="text-left">
-                        <p className="font-medium text-slate-800">{u.name}</p>
-                        <p className="text-xs text-slate-400">{u.email}</p>
+                        <p className="font-medium text-slate-800 dark:text-slate-100">
+                          {u.name}
+                        </p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                          {u.email}
+                        </p>
                       </div>
                       <span
                         className={cn(
@@ -422,19 +428,19 @@ export function JudgeManager({ eventId }: Props) {
                 searchResults.length === 0 &&
                 searchQuery.length > 1 &&
                 !searching && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-400 text-center">
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg dark:shadow-slate-900/60 p-3 text-xs text-slate-400 dark:text-slate-500 text-center">
                     No users found. Switch to &ldquo;Invite by Email&rdquo; to
                     invite someone new.
                   </div>
                 )}
               {/* Selected user badge */}
               {selectedUser && (
-                <div className="mt-2 flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2">
+                <div className="mt-2 flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-800">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                       {selectedUser.name}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {selectedUser.email}
                     </p>
                   </div>
@@ -463,7 +469,7 @@ export function JudgeManager({ eventId }: Props) {
             /* Manual email input */
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">
                   Email address *
                 </label>
                 <input
@@ -471,11 +477,11 @@ export function JudgeManager({ eventId }: Props) {
                   value={manualEmail}
                   onChange={(e) => setManualEmail(e.target.value)}
                   placeholder="judge@example.com"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-[#C8A061]/40 dark:bg-slate-800/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">
                   Full name *
                 </label>
                 <input
@@ -483,10 +489,10 @@ export function JudgeManager({ eventId }: Props) {
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                   placeholder="Judge's full name"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-[#C8A061]/40 dark:bg-slate-800/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
-              <p className="text-xs text-slate-400 bg-amber-50 rounded-lg px-3 py-2">
+              <p className="text-xs text-slate-400 dark:text-slate-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
                 This person will receive an email with a link to set up their
                 account. Their judge role will be linked automatically.
               </p>
@@ -496,7 +502,7 @@ export function JudgeManager({ eventId }: Props) {
           {/* Alias + head judge */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-600 block mb-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">
                 Judge alias (display name) *
               </label>
               <input
@@ -504,7 +510,7 @@ export function JudgeManager({ eventId }: Props) {
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
                 placeholder="e.g. C-Doe, Kolia"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-[#C8A061]/40 dark:bg-slate-800/50 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
             <div className="flex flex-col justify-end gap-1 pb-0.5">
@@ -523,7 +529,9 @@ export function JudgeManager({ eventId }: Props) {
                   onChange={(e) => setIsHeadJudge(e.target.checked)}
                   className="w-4 h-4 rounded border-slate-200 accent-amber-500"
                 />
-                <span className="text-sm text-slate-700">Head Judge</span>
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                  Head Judge
+                </span>
               </label>
               {hasHeadJudge && (
                 <p className="text-[10px] text-amber-600 leading-tight">
@@ -556,14 +564,14 @@ export function JudgeManager({ eventId }: Props) {
       </div>
 
       {/* Current judges list */}
-      <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b bg-slate-50 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-800 text-sm">
+      <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 overflow-hidden">
+        <div className="px-5 py-3 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
             Assigned Judges ({judges.length})
           </h3>
           <button
             onClick={fetchJudges}
-            className="text-xs text-slate-400 hover:text-slate-600"
+            className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
           >
             Refresh
           </button>
@@ -573,11 +581,11 @@ export function JudgeManager({ eventId }: Props) {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
           </div>
         ) : judges.length === 0 ? (
-          <p className="text-center text-slate-400 text-sm py-8">
+          <p className="text-center text-slate-400 dark:text-slate-500 text-sm py-8">
             No judges assigned yet.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-50">
+          <ul className="divide-y divide-slate-50 dark:divide-slate-800">
             {judges.map((j) => (
               <li
                 key={j.id}
@@ -616,7 +624,7 @@ export function JudgeManager({ eventId }: Props) {
                       </form>
                     ) : (
                       <>
-                        <span className="font-semibold text-slate-800 text-sm">
+                        <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
                           {j.alias}
                         </span>
                         <button
@@ -632,27 +640,27 @@ export function JudgeManager({ eventId }: Props) {
                       </>
                     )}
                     {j.isHeadJudge && (
-                      <span className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">
+                      <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded px-1.5 py-0.5 font-semibold">
                         HEAD
                       </span>
                     )}
                     {j.inviteEmail && !j.user.role.match(/JUDGE|ADMIN/) && (
-                      <span className="text-[10px] bg-blue-50 text-blue-600 rounded px-1.5 py-0.5">
+                      <span className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded px-1.5 py-0.5">
                         Invited
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {j.user.name} · {j.user.email}
                     {j.inviteSentAt && (
-                      <span className="ml-1 text-slate-400">
+                      <span className="ml-1 text-slate-400 dark:text-slate-500">
                         (invite sent{" "}
                         {new Date(j.inviteSentAt).toLocaleDateString()})
                       </span>
                     )}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
                       {j.slots.length} round slot
                       {j.slots.length !== 1 ? "s" : ""} assigned
                     </p>
@@ -681,13 +689,13 @@ export function JudgeManager({ eventId }: Props) {
 
                   {/* Per-round checkboxes */}
                   {expandedJudgeId === j.id && (
-                    <div className="mt-2 border border-slate-100 rounded-lg overflow-hidden">
+                    <div className="mt-2 border border-slate-100 dark:border-slate-700 rounded-lg overflow-hidden">
                       {loadingRounds ? (
-                        <p className="text-[10px] text-slate-400 px-3 py-2">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 px-3 py-2">
                           Loading rounds…
                         </p>
                       ) : openRounds.length === 0 ? (
-                        <p className="text-[10px] text-slate-400 px-3 py-2">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 px-3 py-2">
                           No open rounds
                         </p>
                       ) : (
@@ -711,10 +719,10 @@ export function JudgeManager({ eventId }: Props) {
                             <label
                               key={r.id}
                               className={cn(
-                                "flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors text-[11px] border-b border-slate-100 last:border-0",
+                                "flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors text-[11px] border-b border-slate-100 dark:border-slate-700/50 last:border-0",
                                 isInRound
-                                  ? "bg-amber-50 text-amber-800"
-                                  : "bg-white text-slate-600 hover:bg-slate-50",
+                                  ? "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
+                                  : "bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50",
                                 isToggling && "opacity-60 pointer-events-none",
                               )}
                             >
@@ -734,7 +742,7 @@ export function JudgeManager({ eventId }: Props) {
                               />
                               <span className="flex-1">{label}</span>
                               {isToggling && (
-                                <span className="text-[9px] text-slate-400">
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500">
                                   …
                                 </span>
                               )}
@@ -756,14 +764,14 @@ export function JudgeManager({ eventId }: Props) {
                   ) : (
                     <button
                       onClick={() => toggleHeadJudge(j.id, true)}
-                      className="text-[10px] text-slate-500 border border-slate-200 hover:border-amber-300 hover:text-amber-700 rounded px-2 py-1 transition-colors whitespace-nowrap"
+                      className="text-[10px] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600 hover:text-amber-700 dark:hover:text-amber-400 rounded px-2 py-1 transition-colors whitespace-nowrap"
                     >
                       Make Head Judge
                     </button>
                   )}
                   <button
                     onClick={() => removeJudge(j.id)}
-                    className="text-[10px] text-slate-400 hover:text-red-500 border border-slate-200 rounded px-2 py-1 transition-colors"
+                    className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 transition-colors"
                   >
                     Remove
                   </button>

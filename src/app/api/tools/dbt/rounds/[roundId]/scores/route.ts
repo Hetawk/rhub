@@ -67,6 +67,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         scoreLockDeadline: round.scoreLockDeadline,
         scoreEditingLocked,
         isCompleted: !!round.completedAt,
+        roundStatus: round.status,
       },
     });
   } catch (error) {
@@ -106,6 +107,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (round.completedAt) {
       return NextResponse.json(
         { error: "Game is completed. No further score edits allowed." },
+        { status: 403 },
+      );
+    }
+
+    // Block scoring until round is started (LIVE or later)
+    if (round.status === "SCHEDULED") {
+      return NextResponse.json(
+        {
+          error:
+            'Round has not been started yet. The Head Judge must press "Start Round" before scores can be entered.',
+        },
         { status: 403 },
       );
     }

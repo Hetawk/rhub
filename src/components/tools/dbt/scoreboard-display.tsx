@@ -120,9 +120,12 @@ export function ScoreboardDisplay({ roundId }: Props) {
   const decision = calcFinalDecision(judgeTotals);
 
   return (
-    <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-      <div className="bg-slate-800 px-4 py-3 text-center">
-        <h3 className="text-white font-semibold">Scoreboard & Decision</h3>
+    <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="bg-[#182e5f] dark:bg-[#0f1e40] px-4 py-3 text-center">
+        <h3 className="text-white font-semibold tracking-wide">
+          Scoreboard &amp; Decision
+        </h3>
       </div>
 
       <div className="p-6 space-y-6">
@@ -137,54 +140,62 @@ export function ScoreboardDisplay({ roundId }: Props) {
           </div>
         )}
 
-        {/* Per-judge scores */}
-        <div className="overflow-x-auto">
+        {/* Per-judge scores table */}
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="px-3 py-2 text-left">Judge</th>
-                <th className="px-3 py-2 text-center text-emerald-700">
+              <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+                <th className="px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-300">
+                  Judge
+                </th>
+                <th className="px-3 py-2.5 text-center font-semibold text-emerald-600 dark:text-emerald-400">
                   PRO Total
                 </th>
-                <th className="px-3 py-2 text-center text-red-700">
+                <th className="px-3 py-2.5 text-center font-semibold text-red-600 dark:text-red-400">
                   CON Total
                 </th>
-                <th className="px-3 py-2 text-center">Decision</th>
+                <th className="px-3 py-2.5 text-center font-semibold text-slate-600 dark:text-slate-300">
+                  Decision
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {judgeTotals.map((jt) => (
                 <tr
                   key={jt.position}
                   className={cn(
-                    "border-b last:border-0",
-                    jt.isPadded &&
-                      "opacity-70 italic border-dashed bg-amber-50/50",
+                    "transition-colors",
+                    jt.isPadded
+                      ? "bg-amber-50/60 dark:bg-amber-900/10 opacity-75 italic"
+                      : "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60",
                   )}
                 >
-                  <td className="px-3 py-2 font-medium">
-                    J{jt.position}: {jt.judgeAlias}
+                  <td className="px-3 py-2.5 font-medium text-slate-700 dark:text-slate-200 not-italic">
+                    <span className="text-slate-400 dark:text-slate-500 font-mono text-xs mr-1.5">
+                      J{jt.position}
+                    </span>
+                    {jt.judgeAlias}
                     {jt.isPadded && (
-                      <span className="ml-1.5 text-xs not-italic font-normal text-amber-600">
-                        (auto)
+                      <span className="ml-1.5 text-[10px] not-italic font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+                        auto
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center font-mono text-emerald-700 font-bold">
+                  <td className="px-3 py-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">
                     {fmtScore(jt.proTotal)}
                   </td>
-                  <td className="px-3 py-2 text-center font-mono text-red-700 font-bold">
+                  <td className="px-3 py-2.5 text-center font-mono font-bold text-red-600 dark:text-red-400">
                     {fmtScore(jt.conTotal)}
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <span
                       className={cn(
-                        "px-2 py-0.5 rounded text-xs font-semibold",
+                        "px-2 py-0.5 rounded-md text-xs font-semibold",
                         jt.winner === "PRO"
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
                           : jt.winner === "CON"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-slate-100 text-slate-500",
+                            ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                            : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300",
                       )}
                     >
                       {jt.winner === "PRO"
@@ -202,17 +213,19 @@ export function ScoreboardDisplay({ roundId }: Props) {
 
         {/* Grand totals */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-200">
-            <p className="text-xs text-emerald-600 font-medium">
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 text-center border border-emerald-200 dark:border-emerald-800">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
               PRO Total Score
             </p>
-            <p className="text-3xl font-bold text-emerald-700">
+            <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
               {fmtScore(decision.proGrandTotal)}
             </p>
           </div>
-          <div className="bg-red-50 rounded-xl p-4 text-center border border-red-200">
-            <p className="text-xs text-red-600 font-medium">CON Total Score</p>
-            <p className="text-3xl font-bold text-red-700">
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center border border-red-200 dark:border-red-800">
+            <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400 mb-1">
+              CON Total Score
+            </p>
+            <p className="text-3xl font-bold text-red-700 dark:text-red-300">
               {fmtScore(decision.conGrandTotal)}
             </p>
           </div>
@@ -223,44 +236,58 @@ export function ScoreboardDisplay({ roundId }: Props) {
           className={cn(
             "rounded-xl p-6 text-center border-2",
             decision.winner === "PRO"
-              ? "bg-emerald-50 border-emerald-300"
+              ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700"
               : decision.winner === "CON"
-                ? "bg-red-50 border-red-300"
-                : "bg-slate-50 border-slate-300",
+                ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
+                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600",
           )}
         >
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 dark:text-slate-500">
             Judges Final Decision
           </p>
-          <p className="text-2xl font-bold mt-1">
+          <p
+            className={cn(
+              "text-2xl font-bold mt-2",
+              decision.winner === "PRO"
+                ? "text-emerald-700 dark:text-emerald-300"
+                : decision.winner === "CON"
+                  ? "text-red-700 dark:text-red-300"
+                  : "text-slate-600 dark:text-slate-200",
+            )}
+          >
             {decision.winner === "PRO"
               ? "PRO Wins"
               : decision.winner === "CON"
                 ? "CON Wins"
                 : "Tie"}
           </p>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {decision.proWins} – {decision.conWins} judge votes
           </p>
         </div>
 
         {/* Audience votes */}
-        <div className="bg-slate-50 rounded-xl p-4 text-center border">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 text-center border border-slate-200 dark:border-slate-700">
+          <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 dark:text-slate-500 mb-3">
             Audience Vote
           </p>
-          <div className="flex justify-center gap-8">
-            <div>
-              <span className="text-lg font-bold text-emerald-700">
+          <div className="flex justify-center gap-10">
+            <div className="space-y-0.5">
+              <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 block">
                 {audienceVotes.pro}
               </span>
-              <span className="text-xs text-slate-400 block">PRO</span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide block">
+                PRO
+              </span>
             </div>
-            <div>
-              <span className="text-lg font-bold text-red-700">
+            <div className="w-px bg-slate-200 dark:bg-slate-700" />
+            <div className="space-y-0.5">
+              <span className="text-2xl font-bold text-red-600 dark:text-red-400 block">
                 {audienceVotes.con}
               </span>
-              <span className="text-xs text-slate-400 block">CON</span>
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide block">
+                CON
+              </span>
             </div>
           </div>
         </div>
