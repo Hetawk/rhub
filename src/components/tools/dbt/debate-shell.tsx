@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { ScoringSheet } from "./scoring-sheet";
 import { JudgeCellView } from "./judge-cell-view";
 import { JudgeManager } from "./judge-manager";
@@ -8,8 +9,40 @@ import { AudienceVoting } from "./audience-voting";
 import { ScoreboardDisplay } from "./scoreboard-display";
 import { SpeechTimer } from "./speech-timer";
 import { AuthForm } from "./auth-form";
+import { CriteriaGuide } from "./criteria-guide";
 import { cn } from "@/lib/utils";
 import { ROLE_HIERARCHY } from "@/lib/dbt/schemas";
+
+// ---- Tab config with icons ----
+
+const TAB_CONFIG: Record<
+  | "scoreboard"
+  | "scoring"
+  | "timer"
+  | "voting"
+  | "criteria"
+  | "export"
+  | "manage",
+  { icon: string; label: string; shortLabel: string }
+> = {
+  scoreboard: { icon: "📊", label: "Scoreboard", shortLabel: "Board" },
+  scoring: { icon: "✍️", label: "Scoring", shortLabel: "Score" },
+  timer: { icon: "⏱", label: "Timer", shortLabel: "Timer" },
+  voting: { icon: "🗳", label: "Audience", shortLabel: "Vote" },
+  criteria: { icon: "📋", label: "Criteria", shortLabel: "Guide" },
+  export: { icon: "📤", label: "Export", shortLabel: "Export" },
+  manage: { icon: "⚙️", label: "Manage", shortLabel: "Manage" },
+};
+
+const VALID_TABS = [
+  "scoreboard",
+  "scoring",
+  "timer",
+  "voting",
+  "criteria",
+  "export",
+  "manage",
+] as const;
 
 // ---- Types ----
 
@@ -73,7 +106,14 @@ interface Props {
   eventSlug?: string;
 }
 
-type Tab = "scoreboard" | "scoring" | "timer" | "voting" | "export" | "manage";
+type Tab =
+  | "scoreboard"
+  | "scoring"
+  | "timer"
+  | "voting"
+  | "criteria"
+  | "export"
+  | "manage";
 
 // ---- Helpers ----
 
@@ -113,6 +153,31 @@ export function DebateShell({ eventSlug }: Props) {
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("scoreboard");
   const [loading, setLoading] = useState(true);
+
+  const router = useRouter();
+
+  // Read tab from URL on first paint
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get("tab");
+    if (urlTab && (VALID_TABS as readonly string[]).includes(urlTab)) {
+      setTab(urlTab as Tab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Change tab and persist to URL so refresh keeps position. */
+  const changeTab = (t: Tab) => {
+    setTab(t);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("tab", t);
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
+    }
+  };
   const [completing, setCompleting] = useState(false);
   const [viewMode, setViewMode] = useState<"cell" | "table">("cell");
   const [lockDeadline, setLockDeadline] = useState("");
@@ -560,6 +625,7 @@ export function DebateShell({ eventSlug }: Props) {
   const tabs: Tab[] = ["scoreboard", "scoring"];
   if (selectedRound?.timerEnabled) tabs.push("timer");
   tabs.push("voting");
+  tabs.push("criteria");
   if (isAdmin || canEditVotes) tabs.push("export");
 
   return (
@@ -1162,22 +1228,39 @@ export function DebateShell({ eventSlug }: Props) {
       {/* Tabs */}
       {selectedRound && (
         <>
-          <div className="overflow-x-auto pb-1 -mx-2 px-2">
-            <div className="flex gap-1 bg-muted rounded-lg p-1 min-w-max mx-auto">
-              {tabs.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={cn(
-                    "px-3 py-2 rounded-md text-sm font-medium transition-colors capitalize whitespace-nowrap",
-                    tab === t
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {t}
-                </button>
-              ))}
+          {/* Sticky tab bar */}
+          <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border -mx-4 px-4 pb-0 pt-1">
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-0.5 min-w-max">
+                {tabs.map((t) => {
+                  const cfg = TAB_CONFIG[t];
+                  const isLive =
+                    t === "scoreboard" &&
+                    selectedRound.status === "LIVE" &&
+                    !isCompleted;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => changeTab(t)}
+                      className={cn(
+                        "relative flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap border-b-2 focus:outline-none",
+                        tab === t
+                          ? "border-[#C8A061] text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+                      )}
+                    >
+                      <span className="text-sm">{cfg.icon}</span>
+                      <span className="hidden sm:inline">{cfg.label}</span>
+                      <span className="sm:hidden">{cfg.shortLabel}</span>
+                      {isLive && (
+                        <span className="inline-flex items-center gap-0.5 ml-0.5 px-1.5 py-0.5 text-[9px] font-bold bg-green-500 text-white rounded-full animate-pulse">
+                          LIVE
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -1311,6 +1394,8 @@ export function DebateShell({ eventSlug }: Props) {
               isCompleted={isCompleted}
             />
           )}
+
+          {tab === "criteria" && <CriteriaGuide />}
 
           {tab === "export" && (
             <div className="space-y-4 max-w-xl mx-auto">
