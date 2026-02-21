@@ -147,32 +147,71 @@ function ScoreInput({
   onChange: (v: number) => void;
   disabled?: boolean;
 }) {
+  const [inputStr, setInputStr] = useState(value.toFixed(1));
+  const [focused, setFocused] = useState(false);
+
+  // Keep display in sync when stepper buttons change the value externally
+  useEffect(() => {
+    if (!focused) setInputStr(value.toFixed(1));
+  }, [value, focused]);
+
+  const commit = (str: string) => {
+    const parsed = parseFloat(str);
+    if (!isNaN(parsed)) {
+      const clamped = Math.min(max, Math.max(min, +parsed.toFixed(1)));
+      onChange(clamped);
+    } else {
+      // Reset to current value on invalid input
+      setInputStr(value.toFixed(1));
+    }
+    setFocused(false);
+  };
+
+  const colorClass =
+    value >= max * 0.85
+      ? "text-emerald-600"
+      : value <= min + 0.5
+        ? "text-red-500"
+        : "text-slate-700";
+
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       <button
         type="button"
-        className="w-6 h-6 rounded border border-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 transition-colors"
+        className="w-7 h-7 rounded border border-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0"
         onClick={() => onChange(Math.max(min, +(value - 0.5).toFixed(1)))}
         disabled={disabled || value <= min}
         aria-label="Decrease score"
       >
         −
       </button>
-      <span
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={0.5}
+        value={focused ? inputStr : value.toFixed(1)}
+        onChange={(e) => setInputStr(e.target.value)}
+        onFocus={(e) => {
+          setFocused(true);
+          setInputStr(value.toFixed(1));
+          e.target.select();
+        }}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
+        }}
+        disabled={disabled}
         className={cn(
-          "w-10 text-center font-mono text-sm font-semibold",
-          value >= max * 0.85
-            ? "text-emerald-600"
-            : value <= min + 0.5
-              ? "text-red-500"
-              : "text-slate-700",
+          "w-14 text-center font-mono text-sm font-semibold border rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-colors",
+          "disabled:opacity-40 disabled:bg-transparent disabled:border-transparent disabled:cursor-not-allowed",
+          "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+          colorClass,
         )}
-      >
-        {value.toFixed(1)}
-      </span>
+      />
       <button
         type="button"
-        className="w-6 h-6 rounded border border-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 transition-colors"
+        className="w-7 h-7 rounded border border-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center disabled:opacity-40 hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0"
         onClick={() => onChange(Math.min(max, +(value + 0.5).toFixed(1)))}
         disabled={disabled || value >= max}
         aria-label="Increase score"
