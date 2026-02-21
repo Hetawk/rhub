@@ -378,7 +378,7 @@ model DebateRound {
 
     // Timer settings
     timerEnabled      Boolean @default(true)
-    speechDurationSec Int     @default(240) // default 4 min per speech
+    speechDurationSec Int     @default(300) // default 5 min per speech
     prepTimeSec       Int     @default(60) // prep time between speeches
 
     // Audience votes (entered by head judge, not self-serve)
