@@ -656,11 +656,7 @@ function MyCell({
           return (
             <div
               key={team.id}
-              className={cn(
-                "rounded-lg border p-3",
-                sc.bg,
-                "border-opacity-30",
-              )}
+              className={cn("rounded-lg border p-3", sc.bg, sc.border)}
             >
               {/* Team header */}
               <div className="flex items-center justify-between mb-3">
