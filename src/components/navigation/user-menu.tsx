@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   User,
   LogOut,
@@ -21,10 +20,9 @@ import { getRoleMeta } from "@/lib/roles";
 import { useUser } from "@/contexts/user-context";
 
 export function UserMenu() {
-  const { user, loading, refresh } = useUser();
+  const { user, loading } = useUser();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   // Close on outside click
   useEffect(() => {
@@ -38,11 +36,11 @@ export function UserMenu() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
     setOpen(false);
-    await refresh();
-    router.push("/");
-    router.refresh();
+    await fetch("/api/auth/logout", { method: "POST" });
+    // Hard-navigate so the full page (including server components) re-renders
+    // with no cookie present — avoids stale cache flicker on router.push
+    window.location.href = "/";
   };
 
   const roleInfo = user ? getRoleMeta(user.role) : null;

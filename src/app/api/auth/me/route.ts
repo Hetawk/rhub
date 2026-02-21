@@ -20,7 +20,7 @@ export async function GET() {
 
     const { user, sessionCreatedAt } = result;
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -29,6 +29,8 @@ export async function GET() {
       roleChangedAt: user.roleChangedAt ?? null,
       sessionCreatedAt: sessionCreatedAt.toISOString(),
     });
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return res;
   } catch (error) {
     console.error("Me error:", error);
     return NextResponse.json({ user: null }, { status: 500 });
