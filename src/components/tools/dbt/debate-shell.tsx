@@ -134,6 +134,14 @@ export function DebateShell({ eventSlug }: Props) {
   const [newRoundTitle, setNewRoundTitle] = useState("");
   const [addingRound, setAddingRound] = useState(false);
 
+  // Round management state (JUDGE_ADMIN+)
+  const [swappingRoundId, setSwappingRoundId] = useState<string | null>(null);
+  const [addingSlotRoundId, setAddingSlotRoundId] = useState<string | null>(
+    null,
+  );
+  const [addSlotJudgeId, setAddSlotJudgeId] = useState("");
+  const [removingSlotKey, setRemovingSlotKey] = useState<string | null>(null);
+
   // Check auth
   useEffect(() => {
     fetch("/api/auth/me")
@@ -330,6 +338,85 @@ export function DebateShell({ eventSlug }: Props) {
     }
   };
 
+  // Swap PRO/CON teams for a round
+  const swapTeams = async (roundId: string) => {
+    setSwappingRoundId(roundId);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ swapTeams: true }),
+      });
+      if (res.ok && eventSlug) await fetchEvent(eventSlug);
+      else {
+        const err = await res.json();
+        alert(err.error || "Failed to swap teams");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setSwappingRoundId(null);
+    }
+  };
+
+  // Add judge to an existing round's panel
+  const addJudgeToSlot = async (roundId: string, judgeId: string) => {
+    if (!judgeId) return;
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ judgeId }),
+      });
+      if (res.ok && eventSlug) {
+        await fetchEvent(eventSlug);
+        setAddSlotJudgeId("");
+        setAddingSlotRoundId(null);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to assign judge");
+      }
+    } catch {
+      alert("Network error");
+    }
+  };
+
+  // Remove judge from a round's panel
+  const removeJudgeFromSlot = async (roundId: string, slotId: string) => {
+    if (!confirm("Remove this judge from the round?")) return;
+    setRemovingSlotKey(slotId);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slotId }),
+      });
+      if (res.ok && eventSlug) await fetchEvent(eventSlug);
+      else {
+        const err = await res.json();
+        alert(err.error || "Failed to remove judge");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setRemovingSlotKey(null);
+    }
+  };
+
+  // Update round topic
+  const updateRoundTopic = async (roundId: string, topic: string) => {
+    try {
+      await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic }),
+      });
+      if (eventSlug) await fetchEvent(eventSlug);
+    } catch {
+      /* ignore */
+    }
+  };
+
   // ---- Render ----
 
   if (loading) {
@@ -480,31 +567,24 @@ export function DebateShell({ eventSlug }: Props) {
       )}
 
       {user && (
-        <div className="flex items-center justify-between text-sm bg-muted/40 rounded-lg px-4 py-2 border">
+        <div className="flex items-center text-sm bg-muted/40 rounded-lg px-4 py-2 border gap-2 flex-wrap">
           <span className="text-muted-foreground">
             Signed in as{" "}
             <strong className="text-foreground">{user.name}</strong>
-            <span className="ml-2 text-xs text-muted-foreground">
-              ({user.role})
-            </span>
-            {isJudge && (
-              <span className="ml-1 text-ekd-gold font-medium">(Judge)</span>
-            )}
-            {canEditVotes && (
-              <span className="ml-1 text-purple-600 font-medium">
-                (Head Judge)
-              </span>
-            )}
           </span>
-          <button
-            onClick={async () => {
-              await fetch("/api/auth/logout", { method: "POST" });
-              setUser(null);
-            }}
-            className="text-muted-foreground hover:text-red-500 text-xs"
-          >
-            Sign out
-          </button>
+          <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+            {user.role}
+          </span>
+          {isJudge && (
+            <span className="text-xs text-ekd-gold font-semibold px-1.5 py-0.5 bg-ekd-gold/10 rounded">
+              Judge
+            </span>
+          )}
+          {canEditVotes && (
+            <span className="text-xs text-purple-700 font-semibold px-1.5 py-0.5 bg-purple-100 rounded">
+              Head Judge
+            </span>
+          )}
         </div>
       )}
 
@@ -609,6 +689,20 @@ export function DebateShell({ eventSlug }: Props) {
                     </button>
                   </div>
                 </div>
+                {event.teams.length >= 2 && event.rounds.length === 0 && (
+                  <div className="mt-3 bg-ekd-gold/10 border border-ekd-gold/30 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-ekd-dark-brown font-medium">
+                      You have {event.teams.length} teams ready. Now create a
+                      round to start scoring!
+                    </p>
+                    <button
+                      onClick={() => setSetupSection("rounds")}
+                      className="shrink-0 px-3 py-1.5 bg-ekd-gold text-white rounded-lg text-xs font-semibold hover:bg-ekd-light-gold transition-colors"
+                    >
+                      Add Round →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -720,6 +814,208 @@ export function DebateShell({ eventSlug }: Props) {
                     >
                       {addingRound ? "Creating…" : "Create Round"}
                     </button>
+                    {event.judges.length > 0 && (
+                      <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+                        <strong>
+                          {event.judges.length} judge
+                          {event.judges.length !== 1 ? "s" : ""}
+                        </strong>{" "}
+                        ({event.judges.map((j) => j.alias).join(", ")}) will be
+                        auto-assigned to score this round.
+                      </p>
+                    )}
+                    {event.judges.length === 0 && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                        No judges assigned yet. Add judges first so they can
+                        score this round.
+                      </p>
+                    )}
+                    {event.judges.length === 2 && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
+                        <strong>2 of 3 recommended judges assigned.</strong> A
+                        panel average will be calculated as the 3rd judge score
+                        in the scoreboard.
+                      </p>
+                    )}
+                    {event.judges.length === 1 && (
+                      <p className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                        <strong>Only 1 judge assigned.</strong> The recommended
+                        minimum is 3 judges per round. Add more judges before
+                        creating this round.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Existing Round Management ── */}
+                {event.rounds.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t border-border pt-4">
+                      Existing Rounds — Teams &amp; Judges
+                    </p>
+                    {event.rounds.map((r) => {
+                      const rPro = r.roundTeams.find((rt) => rt.side === "PRO");
+                      const rCon = r.roundTeams.find((rt) => rt.side === "CON");
+                      const availableJudges = event.judges.filter(
+                        (j) =>
+                          !r.judgeSlots.some(
+                            (s) => s.judge.user.id === j.user.id,
+                          ),
+                      );
+                      return (
+                        <div
+                          key={r.id}
+                          className="border border-border rounded-xl bg-muted/20 p-3 space-y-3"
+                        >
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">
+                                {r.title || `Round ${r.roundNum}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground italic mt-0.5 line-clamp-2">
+                                {r.topic}
+                              </p>
+                            </div>
+                            <span
+                              className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                                r.completedAt
+                                  ? "bg-muted text-muted-foreground"
+                                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                              )}
+                            >
+                              {r.completedAt ? "Done" : r.status}
+                            </span>
+                          </div>
+
+                          {/* PRO / CON with swap */}
+                          {rPro && rCon && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+                                <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">
+                                  PRO
+                                </span>
+                                {rPro.team.name}
+                              </div>
+                              {!r.completedAt && (
+                                <button
+                                  onClick={() => swapTeams(r.id)}
+                                  disabled={swappingRoundId === r.id}
+                                  title="Swap PRO / CON sides"
+                                  className="text-xs px-2 py-1.5 border border-border rounded-lg bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                                >
+                                  {swappingRoundId === r.id ? "…" : "⇄"}
+                                </button>
+                              )}
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-700 dark:text-red-400 text-xs font-semibold border border-red-200 dark:border-red-800">
+                                <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">
+                                  CON
+                                </span>
+                                {rCon.team.name}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Judge slots */}
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                              Judge Panel
+                            </p>
+                            {r.judgeSlots.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">
+                                No judges assigned to this round yet.
+                              </p>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5">
+                                {r.judgeSlots
+                                  .slice()
+                                  .sort((a, b) => a.position - b.position)
+                                  .map((slot) => (
+                                    <div
+                                      key={slot.id}
+                                      className="flex items-center gap-1 px-2.5 py-1 bg-card border border-border rounded-lg text-xs"
+                                    >
+                                      <span className="text-muted-foreground font-mono">
+                                        J{slot.position}
+                                      </span>
+                                      <span className="font-medium text-foreground">
+                                        {slot.judge.alias}
+                                      </span>
+                                      {slot.judge.isHeadJudge && (
+                                        <span className="text-[9px] bg-ekd-gold/20 text-ekd-dark-brown dark:text-ekd-gold px-1 py-0.5 rounded font-bold">
+                                          HD
+                                        </span>
+                                      )}
+                                      {!r.completedAt && (
+                                        <button
+                                          onClick={() =>
+                                            removeJudgeFromSlot(r.id, slot.id)
+                                          }
+                                          disabled={removingSlotKey === slot.id}
+                                          className="text-muted-foreground/40 hover:text-red-500 transition-colors ml-0.5"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* Add judge to slot */}
+                            {!r.completedAt &&
+                              availableJudges.length > 0 &&
+                              (addingSlotRoundId === r.id ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <select
+                                    value={addSlotJudgeId}
+                                    onChange={(e) =>
+                                      setAddSlotJudgeId(e.target.value)
+                                    }
+                                    className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ekd-gold/40"
+                                  >
+                                    <option value="">Select judge…</option>
+                                    {availableJudges.map((j) => (
+                                      <option key={j.id} value={j.id}>
+                                        {j.alias}
+                                        {j.isHeadJudge ? " (Head)" : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() =>
+                                      addJudgeToSlot(r.id, addSlotJudgeId)
+                                    }
+                                    disabled={!addSlotJudgeId}
+                                    className="px-3 py-1.5 bg-ekd-gold hover:bg-ekd-light-gold text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
+                                  >
+                                    Assign
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setAddingSlotRoundId(null);
+                                      setAddSlotJudgeId("");
+                                    }}
+                                    className="text-xs text-muted-foreground hover:text-foreground"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setAddingSlotRoundId(r.id);
+                                    setAddSlotJudgeId("");
+                                  }}
+                                  className="text-xs text-ekd-gold hover:text-ekd-light-gold font-medium transition-colors"
+                                >
+                                  + Add Judge to Round
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -933,11 +1229,15 @@ export function DebateShell({ eventSlug }: Props) {
 
           {tab === "timer" && selectedRound.timerEnabled && (
             <div className="flex justify-center">
-              <div className="w-full max-w-md">
+              <div className="w-full max-w-2xl">
                 <SpeechTimer
                   defaultDurationSec={selectedRound.speechDurationSec}
-                  prepTimeSec={selectedRound.prepTimeSec}
                   topic={selectedRound.topic}
+                  onTopicChange={
+                    isJudgeAdmin
+                      ? (t) => updateRoundTopic(selectedRound.id, t)
+                      : undefined
+                  }
                   enabled
                 />
               </div>
