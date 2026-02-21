@@ -513,6 +513,8 @@ function MyCell({
   const [activeSpeech, setActiveSpeech] = useState<SpeechTypeKey>(
     SPEECH_TYPES[0].key,
   );
+  // Track previous speech for auto-submit on tab leave
+  const prevSpeechRef = useRef<SpeechTypeKey>(SPEECH_TYPES[0].key);
 
   const proTeam = roundTeams.find((t) => t.side === "PRO");
   const conTeam = roundTeams.find((t) => t.side === "CON");
@@ -569,6 +571,25 @@ function MyCell({
       if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
     };
   }, [drafts, comments, roundId, currentUserId]);
+
+  // Auto-submit complete drafts when judge navigates away from a speech tab
+  useEffect(() => {
+    const prev = prevSpeechRef.current;
+    prevSpeechRef.current = activeSpeech;
+    if (prev === activeSpeech) return;
+    const prevCriteria = SPEECH_CRITERIA[prev] ?? [];
+    if (prevCriteria.length === 0) return;
+    for (const team of [proTeam, conTeam]) {
+      if (!team) continue;
+      if (getExisting(team.id, prev)) continue; // already submitted
+      const teamDrafts = drafts[team.id]?.[prev] ?? {};
+      const allFilled =
+        prevCriteria.length > 0 &&
+        prevCriteria.every((c) => typeof teamDrafts[c.key] === "number");
+      if (allFilled) handleSubmit(team.id, prev);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSpeech]);
 
   const isScoreLocked = lockInfo.isCompleted || lockInfo.scoreEditingLocked;
 
@@ -677,6 +698,27 @@ function MyCell({
           const conS = getExisting(conTeam?.id ?? "", sp.key);
           const done = !!proS && !!conS;
           const partial = (!!proS || !!conS) && !done;
+          // Check if drafts are complete for this (background) speech
+          const spCrit = SPEECH_CRITERIA[sp.key] ?? [];
+          const proDraftFull =
+            !done &&
+            sp.key !== activeSpeech &&
+            !proS &&
+            !!proTeam &&
+            spCrit.length > 0 &&
+            spCrit.every(
+              (c) => typeof drafts[proTeam.id]?.[sp.key]?.[c.key] === "number",
+            );
+          const conDraftFull =
+            !done &&
+            sp.key !== activeSpeech &&
+            !conS &&
+            !!conTeam &&
+            spCrit.length > 0 &&
+            spCrit.every(
+              (c) => typeof drafts[conTeam.id]?.[sp.key]?.[c.key] === "number",
+            );
+          const willAutoLock = (proDraftFull || conDraftFull) && !done;
           return (
             <button
               key={sp.key}
@@ -688,10 +730,11 @@ function MyCell({
                   : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                 done && "text-emerald-600 dark:text-emerald-400",
                 partial && "text-amber-500 dark:text-amber-400",
+                willAutoLock && "text-blue-600 dark:text-blue-400",
               )}
             >
               {sp.shortLabel}
-              {done ? " ✓" : partial ? " ·" : ""}
+              {done ? " ✓" : partial ? " ·" : willAutoLock ? " ⚡" : ""}
             </button>
           );
         })}
@@ -891,6 +934,19 @@ function MyCell({
                     }
                   />
 
+                  {/* Auto-lock notice when all criteria are filled */}
+                  {allCriteriaFilled && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <span className="text-blue-500 dark:text-blue-400 text-sm shrink-0">
+                        ⚡
+                      </span>
+                      <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-tight">
+                        All criteria filled — will auto-submit when you move to
+                        the next speech tab.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Submit button */}
                   <button
                     onClick={() => handleSubmit(team.id, speech.key)}
@@ -944,6 +1000,7 @@ export function JudgeCellView({
   });
   const [loading, setLoading] = useState(true);
   const [startingRound, setStartingRound] = useState(false);
+  const [showStartConfirm, setShowStartConfirm] = useState(false);
 
   const fetchScores = useCallback(async () => {
     try {
@@ -970,7 +1027,8 @@ export function JudgeCellView({
     }
   }, [roundId, currentUserId]);
 
-  const handleStartRound = async () => {
+  const doStartRound = async () => {
+    setShowStartConfirm(false);
     setStartingRound(true);
     try {
       const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
@@ -991,9 +1049,17 @@ export function JudgeCellView({
     }
   };
 
+  const handleStartRound = () => {
+    if (judgeSlots.length < 3) {
+      setShowStartConfirm(true);
+    } else {
+      doStartRound();
+    }
+  };
+
   useEffect(() => {
     fetchScores();
-    const id = setInterval(fetchScores, 5000);
+    const id = setInterval(fetchScores, 3000);
     return () => clearInterval(id);
   }, [fetchScores]);
 
@@ -1051,22 +1117,71 @@ export function JudgeCellView({
             </p>
           </div>
           {canStartRound ? (
-            <button
-              onClick={handleStartRound}
-              disabled={startingRound}
-              className="inline-flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-green-200 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {startingRound ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  Starting…
-                </>
-              ) : (
-                <>
-                  <span className="text-lg">▶</span> Start Round Now
-                </>
-              )}
-            </button>
+            showStartConfirm ? (
+              /* Under-staffed confirmation panel */
+              <div className="w-full max-w-sm mx-auto bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-5 text-left space-y-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl shrink-0">⚠️</span>
+                  <div className="space-y-1.5">
+                    <p className="font-bold text-amber-800 dark:text-amber-300 text-sm">
+                      Only {judgeSlots.length} of 3 judge{" "}
+                      {judgeSlots.length === 1 ? "slot is" : "slots are"} filled
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                      The missing J
+                      {judgeSlots.length === 1
+                        ? "2 and J3 positions"
+                        : "3 position"}{" "}
+                      will be automatically calculated as the{" "}
+                      <strong>panel average</strong> of the active judges.
+                      Scoring works normally — the calculated slot keeps the
+                      final decision balanced.
+                    </p>
+                    <p className="text-[11px] text-amber-600 dark:text-amber-500 italic">
+                      If a 3rd judge joins later, their real scores will
+                      override the average automatically.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={doStartRound}
+                    disabled={startingRound}
+                    className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-60"
+                  >
+                    {startingRound ? "Starting…" : "Start Anyway"}
+                  </button>
+                  <button
+                    onClick={() => setShowStartConfirm(false)}
+                    className="flex-1 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleStartRound}
+                disabled={startingRound}
+                className="inline-flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-green-200 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {startingRound ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Starting…
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg">▶</span> Start Round Now
+                    {judgeSlots.length < 3 && (
+                      <span className="ml-1 text-[10px] bg-white/20 rounded px-1.5 py-0.5">
+                        {judgeSlots.length}/3 judges
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            )
           ) : (
             <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-sm">
               <span className="animate-pulse">⏳</span>
