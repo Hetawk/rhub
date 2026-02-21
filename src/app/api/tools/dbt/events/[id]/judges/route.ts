@@ -176,8 +176,21 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
     }
 
-    const judge = await prisma.debateJudge.create({
-      data: {
+    // If head judge, demote any existing head first
+    if (data.isHeadJudge) {
+      await prisma.debateJudge.updateMany({
+        where: { eventId: id, isHeadJudge: true },
+        data: { isHeadJudge: false },
+      });
+    }
+
+    const judge = await prisma.debateJudge.upsert({
+      where: { eventId_userId: { eventId: id, userId: data.userId } },
+      update: {
+        alias: data.alias,
+        isHeadJudge: data.isHeadJudge,
+      },
+      create: {
         eventId: id,
         userId: data.userId,
         alias: data.alias,
