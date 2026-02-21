@@ -37,10 +37,29 @@ export function UserMenu() {
 
   const handleLogout = async () => {
     setOpen(false);
-    await fetch("/api/auth/logout", { method: "POST" });
-    // Hard-navigate so the full page (including server components) re-renders
-    // with no cookie present — avoids stale cache flicker on router.push
-    window.location.href = "/";
+    try {
+      // Wait for the cookie to be cleared on the server before redirecting
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // Even if the API call fails, still proceed with logout
+    }
+    // Clear any localStorage auth artifacts
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (
+          key.includes("auth") ||
+          key.includes("user") ||
+          key.includes("session")
+        ) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch {}
+    // Hard redirect with logout param to force logged-out state
+    window.location.href = "/?logout=1";
   };
 
   const roleInfo = user ? getRoleMeta(user.role) : null;
@@ -52,13 +71,22 @@ export function UserMenu() {
       user.role,
     );
 
+  console.log(
+    "[UserMenu] Render - loading:",
+    loading,
+    "user:",
+    user?.name || "null",
+  );
+
   // Show skeleton only during the INITIAL load — never flash auth buttons first
   if (loading) {
+    console.log("[UserMenu] Showing loading skeleton");
     return <div className="h-8 w-20 rounded-full bg-muted animate-pulse" />;
   }
 
   // Not logged in
   if (!user) {
+    console.log("[UserMenu] Showing login/register buttons");
     return (
       <div className="flex items-center gap-2">
         <Link
@@ -78,6 +106,8 @@ export function UserMenu() {
       </div>
     );
   }
+
+  console.log("[UserMenu] Showing user menu for:", user.name);
 
   return (
     <div className="relative" ref={menuRef}>

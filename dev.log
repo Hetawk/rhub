@@ -16,6 +16,38 @@
 
 ✓ Starting...
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
-✓ Ready in 1131ms
+✓ Ready in 1129ms
 ○ Compiling / ...
- GET / 200 in 5.0s (compile: 3.7s, proxy.ts: 56ms, render: 1262ms)
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 4.7s (compile: 3.8s, proxy.ts: 44ms, render: 848ms)
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 321ms (compile: 4ms, proxy.ts: 18ms, render: 299ms)
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 250ms (compile: 4ms, proxy.ts: 6ms, render: 240ms)
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 231ms (compile: 18ms, proxy.ts: 7ms, render: 206ms)
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 202ms (compile: 7ms, proxy.ts: 3ms, render: 191ms)
+ GET / 200 in 189ms (compile: 4ms, proxy.ts: 5ms, render: 180ms)
+✓ Compiled in 294ms
+[UserProvider] Component render
+[UserProvider] Rendering - user: null loading: true
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 611ms (compile: 133ms, proxy.ts: 20ms, render: 458ms)
+ GET /api/auth/me?_t=1771650606032 200 in 483ms (compile: 419ms, proxy.ts: 8ms, render: 57ms)
+ GET /api/auth/me?_t=1771650606028 200 in 489ms (compile: 471ms, proxy.ts: 7ms, render: 11ms)
+[UserProvider] Component render
+[UserProvider] Rendering - user: null loading: true
+[UserMenu] Render - loading: true user: null
+[UserMenu] Showing loading skeleton
+ GET / 200 in 309ms (compile: 12ms, proxy.ts: 19ms, render: 278ms)
+ GET /api/auth/me?_t=1771650613642 200 in 132ms (compile: 9ms, proxy.ts: 92ms, render: 32ms)
+ GET /api/auth/me?_t=1771650613644 200 in 51ms (compile: 17ms, proxy.ts: 7ms, render: 28ms)
