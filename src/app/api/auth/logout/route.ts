@@ -11,14 +11,16 @@ export async function POST() {
       await deleteSession(token);
     }
 
-    // Build a response that carries the Set-Cookie header to expire the cookie
     const response = NextResponse.json({ success: true });
+    // Use the official Next.js cookie-delete API — more reliable than maxAge:0
+    response.cookies.delete("auth_token");
+    // Belt-and-suspenders: also explicitly expire via Set-Cookie attributes
     response.cookies.set("auth_token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 0, // immediately expire
+      expires: new Date(0),
     });
     response.headers.set(
       "Cache-Control",

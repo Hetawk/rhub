@@ -37,13 +37,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUser = useCallback(async () => {
+    // Safety net: never let the loading skeleton show for more than 4 s
+    const giveUp = setTimeout(() => setLoading(false), 4000);
     try {
-      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      // Cache-buster ensures the browser never serves a stale /me response
+      const res = await fetch(`/api/auth/me?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const data = await res.json();
       setUser(data.id ? (data as AuthUser) : null);
     } catch {
       setUser(null);
     } finally {
+      clearTimeout(giveUp);
       setLoading(false);
     }
   }, []);
