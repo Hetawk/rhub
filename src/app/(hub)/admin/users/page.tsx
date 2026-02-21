@@ -181,7 +181,7 @@ function UsersContent() {
         setFeedback({ id: userId, ok: true });
       } else {
         setFeedback({ id: userId, ok: false });
-        console.error(data.error);
+        alert(data.error || "Failed to update role.");
       }
     } catch {
       setFeedback({ id: userId, ok: false });
@@ -226,9 +226,16 @@ function UsersContent() {
       if (res.ok) {
         setUsers((prev) => prev.filter((u) => u.id !== userId));
         setTotal((t) => t - 1);
+        setFeedback({ id: userId, ok: true });
+        setTimeout(() => setFeedback(null), 2000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete user.");
+        setFeedback({ id: userId, ok: false });
+        setTimeout(() => setFeedback(null), 2000);
       }
     } catch {
-      // ignore
+      alert("Network error. Please try again.");
     } finally {
       setSavingId(null);
     }
