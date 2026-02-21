@@ -182,6 +182,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           roundTeamId,
           speechType,
           totalScore,
+          isDraft: true, // live-sync draft; only false after explicit Submit
           criteria: {
             create: Object.entries(validScores).map(([criteriaKey, score]) => ({
               criteriaKey,
@@ -196,6 +197,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         where: { id: existing.id },
         data: {
           totalScore,
+          isDraft: true, // keep as draft until explicit Submit
           criteria: {
             deleteMany: {},
             create: Object.entries(validScores).map(([criteriaKey, score]) => ({
@@ -368,7 +370,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       0,
     );
 
-    // Upsert speech score
+    // Upsert speech score — isDraft:false marks it as final (judge pressed Submit)
     const speechScore = await prisma.speechScore.upsert({
       where: {
         slotId_roundTeamId_speechType: {
@@ -383,6 +385,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         speechType: data.speechType,
         totalScore,
         comment: data.comment,
+        isDraft: false,
         criteria: {
           create: criteriaDefs.map((c) => ({
             criteriaKey: c.key,
@@ -393,6 +396,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       update: {
         totalScore,
         comment: data.comment,
+        isDraft: false,
         criteria: {
           deleteMany: {},
           create: criteriaDefs.map((c) => ({

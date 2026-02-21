@@ -469,6 +469,7 @@ model SpeechScore {
     speechType  SpeechType
     totalScore  Float? // Auto-calculated sum of criteria (20-30)
     comment     String?    @db.Text
+    isDraft     Boolean    @default(false) // true = live-sync only; false = judge pressed Submit
     isLocked    Boolean    @default(false)
     lockedAt    DateTime?
     createdAt   DateTime   @default(now())

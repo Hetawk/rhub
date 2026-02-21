@@ -33,6 +33,7 @@ interface SpeechScoreData {
   speechType: string;
   totalScore: number | null;
   comment: string | null;
+  isDraft: boolean; // true = live-sync only; false = judge pressed Submit
   isLocked: boolean;
   lockedAt: string | null;
   criteria: CriteriaScoreData[];
@@ -274,7 +275,8 @@ function ReadOnlyCell({
   const submittedCount = SPEECH_TYPES.reduce((n, sp) => {
     const pro = getScore(proTeam, sp.key);
     const con = getScore(conTeam, sp.key);
-    return n + (pro ? 1 : 0) + (con ? 1 : 0);
+    // Only count finalized (non-draft) scores in the progress bar
+    return n + (pro && !pro.isDraft ? 1 : 0) + (con && !con.isDraft ? 1 : 0);
   }, 0);
   const totalPossible = SPEECH_TYPES.length * 2;
   const progressPct = Math.round((submittedCount / totalPossible) * 100);
@@ -446,7 +448,11 @@ function ReadOnlyCell({
                         )}
                         {/* Lock state */}
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-                          {score.isLocked ? (
+                          {score.isDraft ? (
+                            <span className="inline-flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded px-1.5 py-0.5">
+                              ⚡ live draft
+                            </span>
+                          ) : score.isLocked ? (
                             <span className="inline-flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1.5 py-0.5">
                               🔒 locked
                             </span>
@@ -522,37 +528,61 @@ function MyCell({
     roundTeams
       .find((t) => t.id === teamId)
       ?.scores.find(
-        (s) => s.slot.id === slot.id && s.speechType === speechType,
+        // Only treat a score as "submitted" if it is NOT a draft.
+        // isDraft:true = live-sync background save, judge can still edit.
+        // isDraft:false = judge pressed Submit; form becomes read-only.
+        (s) =>
+          s.slot.id === slot.id && s.speechType === speechType && !s.isDraft,
       );
 
-  // Restore from localStorage once
+  // Restore from localStorage once; also seed from any DB drafts (isDraft:true)
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
     const saved = loadDraft(roundId, currentUserId);
-    if (!saved) return;
     const filteredDrafts: typeof drafts = {};
     const filteredComments: typeof comments = {};
-    for (const [rtId, speechMap] of Object.entries(saved.drafts ?? {})) {
-      for (const [speechType, criteria] of Object.entries(
-        speechMap as Record<string, Record<string, number>>,
-      )) {
+
+    // 1. Restore from localStorage (skip speeches already finalized)
+    for (const [rtId, speechMap] of Object.entries(
+      (saved?.drafts ?? {}) as Record<
+        string,
+        Record<string, Record<string, number>>
+      >,
+    )) {
+      for (const [speechType, criteria] of Object.entries(speechMap)) {
         if (!getExisting(rtId, speechType)) {
           filteredDrafts[rtId] = filteredDrafts[rtId] || {};
           filteredDrafts[rtId][speechType] = criteria;
         }
       }
     }
-    for (const [rtId, speechMap] of Object.entries(saved.comments ?? {})) {
-      for (const [speechType, comment] of Object.entries(
-        speechMap as Record<string, string>,
-      )) {
+    for (const [rtId, speechMap] of Object.entries(
+      (saved?.comments ?? {}) as Record<string, Record<string, string>>,
+    )) {
+      for (const [speechType, comment] of Object.entries(speechMap)) {
         if (!getExisting(rtId, speechType)) {
           filteredComments[rtId] = filteredComments[rtId] || {};
           filteredComments[rtId][speechType] = comment;
         }
       }
     }
+
+    // 2. Pre-populate from DB draft scores (isDraft:true) for speeches
+    //    that have no localStorage entry — covers page reload / different device
+    for (const team of roundTeams) {
+      for (const s of team.scores) {
+        if (s.slot.id !== slot.id) continue; // not this judge
+        if (!s.isDraft) continue; // already finalized — skip
+        if (filteredDrafts[team.id]?.[s.speechType]) continue; // localStorage wins
+        filteredDrafts[team.id] = filteredDrafts[team.id] || {};
+        filteredDrafts[team.id][s.speechType] = {};
+        for (const cr of s.criteria) {
+          filteredDrafts[team.id][s.speechType][cr.criteriaKey] = cr.score;
+        }
+      }
+    }
+
     if (Object.keys(filteredDrafts).length) setDrafts(filteredDrafts);
     if (Object.keys(filteredComments).length) setComments(filteredComments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
