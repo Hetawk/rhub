@@ -437,7 +437,7 @@ export default function JudgeDashboardPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-3">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-ekd-gold/10 text-ekd-dark-brown font-semibold">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-ekd-gold/20 dark:bg-ekd-gold/30 text-ekd-dark-brown dark:text-ekd-gold font-semibold">
                             J{slot.position}
                           </span>
                           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-ekd-gold transition-colors" />

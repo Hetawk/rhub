@@ -259,6 +259,9 @@ function ReadOnlyCell({
   roundTeams: RoundTeamData[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [activeSpeech, setActiveSpeech] = useState<SpeechTypeKey>(
+    SPEECH_TYPES[0].key,
+  );
   const proTeam = roundTeams.find((t) => t.side === "PRO");
   const conTeam = roundTeams.find((t) => t.side === "CON");
 
@@ -273,16 +276,23 @@ function ReadOnlyCell({
     return n + (pro ? 1 : 0) + (con ? 1 : 0);
   }, 0);
   const totalPossible = SPEECH_TYPES.length * 2;
+  const progressPct = Math.round((submittedCount / totalPossible) * 100);
+
+  const speech =
+    SPEECH_TYPES.find((s) => s.key === activeSpeech) ?? SPEECH_TYPES[0];
+  const criteria = SPEECH_CRITERIA[speech.key] ?? [];
+  const proScore = getScore(proTeam, speech.key);
+  const conScore = getScore(conTeam, speech.key);
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
       {/* Cell header */}
       <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wide">
-            J{slot.position}
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-widest">
+            J{slot.position} · Observer View
           </p>
-          <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
+          <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm leading-tight">
             {slot.judge.alias}
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -291,90 +301,176 @@ function ReadOnlyCell({
         </div>
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 transition-colors bg-white dark:bg-slate-800"
+          className={cn(
+            "text-xs font-medium border rounded-lg px-3 py-1.5 transition-colors",
+            expanded
+              ? "bg-slate-700 dark:bg-slate-600 text-white border-slate-700 dark:border-slate-600"
+              : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-700 dark:hover:text-slate-200",
+          )}
         >
-          {expanded ? "Collapse" : "View"}
+          {expanded ? "↑ Collapse" : "↓ View Scores"}
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60">
+      <div className="px-4 py-2.5 bg-slate-50/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-amber-400 rounded-full transition-all"
-              style={{ width: `${(submittedCount / totalPossible) * 100}%` }}
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                progressPct === 100
+                  ? "bg-emerald-500"
+                  : progressPct > 0
+                    ? "bg-amber-400"
+                    : "bg-slate-300 dark:bg-slate-600",
+              )}
+              style={{ width: `${progressPct}%` }}
             />
           </div>
-          <span>
+          <span className="tabular-nums shrink-0">
             {submittedCount}/{totalPossible} submitted
           </span>
+          {progressPct === 100 && (
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold shrink-0">
+              ✓ Complete
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Scores (expandable) */}
+      {/* Expanded score viewer */}
       {expanded && (
-        <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-          {SPEECH_TYPES.map((sp) => {
-            const proScore = getScore(proTeam, sp.key);
-            const conScore = getScore(conTeam, sp.key);
-            return (
-              <div key={sp.key} className="px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase">
-                  {sp.label}
-                </p>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mb-0.5">
-                      PRO · {proTeam?.team.name}
-                    </p>
-                    {proScore ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base font-bold text-slate-700 dark:text-slate-200 font-mono">
-                          {proScore.totalScore?.toFixed(1) ?? "—"}
-                        </span>
-                        {proScore.isLocked && (
-                          <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1">
-                            locked
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 dark:text-slate-500 italic">
-                        Pending…
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] text-red-500 dark:text-red-400 font-medium mb-0.5">
-                      CON · {conTeam?.team.name}
-                    </p>
-                    {conScore ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base font-bold text-slate-700 dark:text-slate-200 font-mono">
-                          {conScore.totalScore?.toFixed(1) ?? "—"}
-                        </span>
-                        {conScore.isLocked && (
-                          <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1">
-                            locked
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 dark:text-slate-500 italic">
-                        Pending…
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {(proScore?.comment || conScore?.comment) && (
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 italic border-l-2 border-slate-200 dark:border-slate-700 pl-2 mt-1">
-                    {proScore?.comment || conScore?.comment}
-                  </p>
-                )}
+        <div>
+          {/* Speech tabs */}
+          <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 scrollbar-hide">
+            {SPEECH_TYPES.map((sp) => {
+              const proS = getScore(proTeam, sp.key);
+              const conS = getScore(conTeam, sp.key);
+              const done = !!proS && !!conS;
+              const partial = (!!proS || !!conS) && !done;
+              return (
+                <button
+                  key={sp.key}
+                  onClick={() => setActiveSpeech(sp.key)}
+                  className={cn(
+                    "flex-shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
+                    activeSpeech === sp.key
+                      ? "border-slate-600 dark:border-slate-300 text-slate-800 dark:text-slate-100"
+                      : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300",
+                    done && "text-emerald-600 dark:text-emerald-400",
+                    partial && "text-amber-500 dark:text-amber-400",
+                  )}
+                >
+                  {sp.shortLabel}
+                  {done ? " ✓" : partial ? " ·" : ""}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Speech label banner */}
+          <div className="px-4 pt-4 pb-0">
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
+              <div className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-black text-slate-600 dark:text-slate-300 shrink-0">
+                {SPEECH_TYPES.indexOf(speech) + 1}
               </div>
-            );
-          })}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                  {speech.shortLabel}{" "}
+                  <span className="text-slate-400 dark:text-slate-500 font-normal">
+                    ·
+                  </span>{" "}
+                  <span className="text-slate-500 dark:text-slate-400 font-normal">
+                    {speech.speechType}
+                  </span>
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg px-2.5 py-1 shrink-0">
+                ⏱ {speech.durationMins} min
+              </span>
+            </div>
+          </div>
+
+          {/* Per-team score cards */}
+          <div className="p-4 space-y-4">
+            {[
+              { team: proTeam, score: proScore, side: "PRO" as const },
+              { team: conTeam, score: conScore, side: "CON" as const },
+            ]
+              .filter((x) => x.team)
+              .map(({ team, score, side }) => {
+                const sc = SIDE_COLORS[side];
+                return (
+                  <div
+                    key={side}
+                    className={cn("rounded-lg border p-3", sc.bg, sc.border)}
+                  >
+                    {/* Team header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className={cn("text-xs font-bold uppercase", sc.text)}
+                      >
+                        {side} · {team!.team.name}
+                      </span>
+                      <span className="font-mono text-lg font-bold text-slate-700 dark:text-slate-200">
+                        {score ? (score.totalScore?.toFixed(1) ?? "—") : "—"}
+                      </span>
+                    </div>
+
+                    {score ? (
+                      <div className="space-y-2">
+                        {/* Criteria breakdown */}
+                        {score.criteria.length > 0 && (
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {criteria.map((c) => {
+                              const val = score.criteria.find(
+                                (cr) => cr.criteriaKey === c.key,
+                              );
+                              return (
+                                <div
+                                  key={c.key}
+                                  className="text-[10px] flex justify-between bg-white/60 dark:bg-slate-800/60 rounded px-2 py-1"
+                                >
+                                  <span className="text-slate-400 dark:text-slate-500 truncate">
+                                    {c.label}
+                                  </span>
+                                  <span className="font-semibold text-slate-600 dark:text-slate-300 font-mono ml-1 shrink-0">
+                                    {val ? val.score.toFixed(1) : "—"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {/* Lock state */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
+                          {score.isLocked ? (
+                            <span className="inline-flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded px-1.5 py-0.5">
+                              🔒 locked
+                            </span>
+                          ) : (
+                            <span className="text-emerald-500 dark:text-emerald-400">
+                              ✓ submitted
+                            </span>
+                          )}
+                        </div>
+                        {/* Comment */}
+                        {score.comment && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 italic border-l-2 border-slate-200 dark:border-slate-600 pl-2">
+                            "{score.comment}"
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+                        No score submitted yet for this speech.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
         </div>
       )}
     </div>
