@@ -31,6 +31,14 @@ interface JudgeData {
   slots: { id: string; roundId: string; position: number }[];
 }
 
+interface RoundData {
+  id: string;
+  roundNum: number;
+  topic: string | null;
+  completedAt: string | null;
+  judgeSlots: { id: string; position: number; judge: { id: string } }[];
+}
+
 interface Props {
   eventId: string;
 }
@@ -38,6 +46,13 @@ interface Props {
 export function JudgeManager({ eventId }: Props) {
   const [judges, setJudges] = useState<JudgeData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rounds, setRounds] = useState<RoundData[]>([]);
+  const [loadingRounds, setLoadingRounds] = useState(true);
+  const [expandedJudgeId, setExpandedJudgeId] = useState<string | null>(null);
+  const [togglingSlot, setTogglingSlot] = useState<{
+    judgeId: string;
+    roundId: string;
+  } | null>(null);
 
   // Form state
   const [selectedUser, setSelectedUser] = useState<UserResult | null>(null);
@@ -76,9 +91,51 @@ export function JudgeManager({ eventId }: Props) {
     }
   }, [eventId]);
 
+  const fetchRounds = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tools/dbt/events/${eventId}/rounds`);
+      const data = await res.json();
+      setRounds(data.rounds || []);
+    } catch {
+      /* silently ignore */
+    } finally {
+      setLoadingRounds(false);
+    }
+  }, [eventId]);
+
   useEffect(() => {
     fetchJudges();
-  }, [fetchJudges]);
+    fetchRounds();
+  }, [fetchJudges, fetchRounds]);
+
+  const toggleRoundSlot = async (
+    judgeId: string,
+    roundId: string,
+    isInRound: boolean,
+    slotId?: string,
+  ) => {
+    setTogglingSlot({ judgeId, roundId });
+    try {
+      if (isInRound && slotId) {
+        await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slotId }),
+        });
+      } else if (!isInRound) {
+        await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ judgeId }),
+        });
+      }
+      await Promise.all([fetchJudges(), fetchRounds()]);
+    } catch {
+      alert("Network error — please try again.");
+    } finally {
+      setTogglingSlot(null);
+    }
+  };
 
   // Debounced user search
   useEffect(() => {
@@ -240,6 +297,7 @@ export function JudgeManager({ eventId }: Props) {
   };
 
   const hasHeadJudge = judges.some((j) => j.isHeadJudge);
+  const openRounds = rounds.filter((r) => !r.completedAt);
 
   const updateAlias = async (judgeId: string, newAlias: string) => {
     if (!newAlias.trim()) return;
@@ -593,10 +651,99 @@ export function JudgeManager({ eventId }: Props) {
                       </span>
                     )}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    {j.slots.length} round slot{j.slots.length !== 1 ? "s" : ""}{" "}
-                    assigned
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-[10px] text-slate-400">
+                      {j.slots.length} round slot
+                      {j.slots.length !== 1 ? "s" : ""} assigned
+                    </p>
+                    {openRounds.length > 0 && (
+                      <button
+                        onClick={() =>
+                          setExpandedJudgeId(
+                            expandedJudgeId === j.id ? null : j.id,
+                          )
+                        }
+                        className={cn(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-semibold transition-all",
+                          expandedJudgeId === j.id
+                            ? "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
+                            : "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-400",
+                        )}
+                      >
+                        {expandedJudgeId === j.id ? (
+                          <>▴ close</>
+                        ) : (
+                          <>▾ assign to rounds</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Per-round checkboxes */}
+                  {expandedJudgeId === j.id && (
+                    <div className="mt-2 border border-slate-100 rounded-lg overflow-hidden">
+                      {loadingRounds ? (
+                        <p className="text-[10px] text-slate-400 px-3 py-2">
+                          Loading rounds…
+                        </p>
+                      ) : openRounds.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 px-3 py-2">
+                          No open rounds
+                        </p>
+                      ) : (
+                        openRounds.map((r) => {
+                          const existingSlot = r.judgeSlots.find(
+                            (s) => s.judge.id === j.id,
+                          );
+                          const isInRound = !!existingSlot;
+                          const isToggling =
+                            togglingSlot?.judgeId === j.id &&
+                            togglingSlot?.roundId === r.id;
+                          const label =
+                            r.topic && r.topic.length > 0
+                              ? `R${r.roundNum} — ${
+                                  r.topic.length > 45
+                                    ? r.topic.substring(0, 45) + "…"
+                                    : r.topic
+                                }`
+                              : `Round ${r.roundNum}`;
+                          return (
+                            <label
+                              key={r.id}
+                              className={cn(
+                                "flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors text-[11px] border-b border-slate-100 last:border-0",
+                                isInRound
+                                  ? "bg-amber-50 text-amber-800"
+                                  : "bg-white text-slate-600 hover:bg-slate-50",
+                                isToggling && "opacity-60 pointer-events-none",
+                              )}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isInRound}
+                                disabled={isToggling}
+                                onChange={() =>
+                                  toggleRoundSlot(
+                                    j.id,
+                                    r.id,
+                                    isInRound,
+                                    existingSlot?.id,
+                                  )
+                                }
+                                className="w-3.5 h-3.5 accent-amber-500 shrink-0"
+                              />
+                              <span className="flex-1">{label}</span>
+                              {isToggling && (
+                                <span className="text-[9px] text-slate-400">
+                                  …
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0 flex flex-col gap-1.5">
                   {j.isHeadJudge ? (

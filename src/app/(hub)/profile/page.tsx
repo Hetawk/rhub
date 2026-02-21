@@ -112,15 +112,19 @@ function ProfileContent() {
       setPwdError("New password must be at least 6 characters");
       return;
     }
+    // For OAuth users setting a password for the first time, currentPwd is empty — that's fine
+    if (profile?.hasPassword && !currentPwd) {
+      setPwdError("Current password is required");
+      return;
+    }
     setPwdSaving(true);
     try {
+      const body: Record<string, string> = { newPassword: newPwd };
+      if (profile?.hasPassword) body.currentPassword = currentPwd;
       const res = await fetch("/api/user/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword: currentPwd,
-          newPassword: newPwd,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -131,6 +135,8 @@ function ProfileContent() {
       setCurrentPwd("");
       setNewPwd("");
       setConfirmPwd("");
+      // Update local state so form switches to "Change Password" mode
+      setProfile((p) => (p ? { ...p, hasPassword: true } : p));
     } catch {
       setPwdError("Network error. Please try again.");
     } finally {
@@ -300,31 +306,40 @@ function ProfileContent() {
           </div>
         </div>
 
-        {/* Change password — only for accounts with a password */}
-        {profile.hasPassword && (
-          <div className="rounded-xl border border-border bg-card">
-            <div className="px-5 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold text-foreground">
-                  Change Password
-                </h2>
-              </div>
+        {/* Password section — shown to all users */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">
+                {profile.hasPassword ? "Change Password" : "Set a Password"}
+              </h2>
             </div>
-            <div className="px-5 py-5">
-              <form onSubmit={handleChangePassword} className="space-y-4">
-                {pwdError && (
-                  <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-                    {pwdError}
-                  </div>
-                )}
-                {pwdSuccess && (
-                  <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-600 dark:text-green-400">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    Password updated successfully
-                  </div>
-                )}
+            {!profile.hasPassword && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Your account currently uses Google sign-in only. Set a password
+                to also be able to log in with your email and password.
+              </p>
+            )}
+          </div>
+          <div className="px-5 py-5">
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              {pwdError && (
+                <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+                  {pwdError}
+                </div>
+              )}
+              {pwdSuccess && (
+                <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  {profile.hasPassword
+                    ? "Password updated successfully"
+                    : "Password set! You can now log in with email & password."}
+                </div>
+              )}
 
+              {/* Current password — only needed when account already has a password */}
+              {profile.hasPassword && (
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">
                     Current Password
@@ -356,97 +371,92 @@ function ProfileContent() {
                     </button>
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showNew ? "text" : "password"}
-                      value={newPwd}
-                      onChange={(e) => setNewPwd(e.target.value)}
-                      required
-                      minLength={6}
-                      placeholder="••••••••"
-                      className={cn(
-                        "w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm",
-                        "focus:outline-none focus:ring-2 focus:ring-ekd-gold/30 focus:border-ekd-gold",
-                        "placeholder:text-muted-foreground/60",
-                      )}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNew(!showNew)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
-                    >
-                      {showNew ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  {profile.hasPassword ? "New Password" : "Password"}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNew ? "text" : "password"}
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="••••••••"
+                    className={cn(
+                      "w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm",
+                      "focus:outline-none focus:ring-2 focus:ring-ekd-gold/30 focus:border-ekd-gold",
+                      "placeholder:text-muted-foreground/60",
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(!showNew)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showNew ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showConfirm ? "text" : "password"}
-                      value={confirmPwd}
-                      onChange={(e) => setConfirmPwd(e.target.value)}
-                      required
-                      placeholder="••••••••"
-                      className={cn(
-                        "w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm",
-                        "focus:outline-none focus:ring-2 focus:ring-ekd-gold/30 focus:border-ekd-gold",
-                        "placeholder:text-muted-foreground/60",
-                      )}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
-                    >
-                      {showConfirm ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Confirm {profile.hasPassword ? "New " : ""}Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirm ? "text" : "password"}
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    required
+                    placeholder="••••••••"
+                    className={cn(
+                      "w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm",
+                      "focus:outline-none focus:ring-2 focus:ring-ekd-gold/30 focus:border-ekd-gold",
+                      "placeholder:text-muted-foreground/60",
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showConfirm ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
+              </div>
 
-                <button
-                  type="submit"
-                  disabled={pwdSaving}
-                  className="flex items-center gap-2 rounded-xl bg-ekd-gold hover:bg-ekd-light-gold text-ekd-dark-brown font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-50"
-                >
-                  {pwdSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  {pwdSaving ? "Updating..." : "Update Password"}
-                </button>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={pwdSaving}
+                className="flex items-center gap-2 rounded-xl bg-ekd-gold hover:bg-ekd-light-gold text-ekd-dark-brown font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-50"
+              >
+                {pwdSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {pwdSaving
+                  ? profile.hasPassword
+                    ? "Updating..."
+                    : "Setting..."
+                  : profile.hasPassword
+                    ? "Update Password"
+                    : "Set Password"}
+              </button>
+            </form>
           </div>
-        )}
-
-        {/* Google-only account notice */}
-        {!profile.hasPassword && profile.isGoogleLinked && (
-          <div className="rounded-xl border border-border bg-muted/30 px-5 py-4 flex items-start gap-3">
-            <Chrome className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-sm text-muted-foreground">
-              Your account uses Google sign-in. Password management is handled
-              through your Google account.
-            </p>
-          </div>
-        )}
+        </div>
       </div>
     </AppShell>
   );

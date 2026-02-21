@@ -14,7 +14,8 @@ const updateProfileSchema = z.object({
 });
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
+  // optional for OAuth users setting a password for the first time
+  currentPassword: z.string().optional(),
   newPassword: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -138,23 +139,23 @@ export async function PUT(req: NextRequest) {
     if (!full)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    if (!full.password) {
-      return NextResponse.json(
-        {
-          error:
-            "This account uses Google sign-in. Password cannot be changed here.",
-        },
-        { status: 400 },
-      );
+    if (full.password) {
+      // Existing password — require current password verification
+      if (!parsed.data.currentPassword) {
+        return NextResponse.json(
+          { error: "Current password is required" },
+          { status: 400 },
+        );
+      }
+      const valid = await verifyPwd(parsed.data.currentPassword, full.password);
+      if (!valid) {
+        return NextResponse.json(
+          { error: "Current password is incorrect" },
+          { status: 400 },
+        );
+      }
     }
-
-    const valid = await verifyPwd(parsed.data.currentPassword, full.password);
-    if (!valid) {
-      return NextResponse.json(
-        { error: "Current password is incorrect" },
-        { status: 400 },
-      );
-    }
+    // If !full.password (OAuth-only user), allow setting a new password freely
 
     const hashed = await hashPwd(parsed.data.newPassword);
     await prisma.user.update({
