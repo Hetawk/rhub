@@ -76,6 +76,13 @@ export function JudgeManager({ eventId }: Props) {
   const [editAliasId, setEditAliasId] = useState<string | null>(null);
   const [editAliasValue, setEditAliasValue] = useState("");
   const [savingAlias, setSavingAlias] = useState(false);
+
+  // Judge reorder state — per-round drag-free ordering with up/down arrows
+  const [reorderRoundId, setReorderRoundId] = useState<string | null>(null);
+  // Local draft order: array of slotIds in display order
+  const [reorderDraft, setReorderDraft] = useState<string[]>([]);
+  const [savingReorder, setSavingReorder] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
   const [activeInputMode, setActiveInputMode] = useState<"search" | "email">(
     "search",
   );
@@ -340,6 +347,65 @@ export function JudgeManager({ eventId }: Props) {
       }
     } catch {
       alert("Network error");
+    }
+  };
+
+  // Open the reorder panel for a specific round, initialising the draft from current slot positions
+  const openReorder = (roundId: string) => {
+    const round = rounds.find((r) => r.id === roundId);
+    if (!round) return;
+    // Sort slots by current position; head judge always at front
+    const sorted = [...round.judgeSlots].sort(
+      (a, b) => a.position - b.position,
+    );
+    setReorderDraft(sorted.map((s) => s.id));
+    setReorderRoundId(roundId);
+    setReorderError(null);
+  };
+
+  const moveSlot = (index: number, dir: -1 | 1) => {
+    const next = [...reorderDraft];
+    const target = index + dir;
+    if (target < 0 || target >= next.length) return;
+    // Prevent moving the head judge away from position 0 (J1)
+    const round = rounds.find((r) => r.id === reorderRoundId);
+    const headSlotId = round?.judgeSlots.find((s) => {
+      const judge = judges.find((j) => j.slots.some((sl) => sl.id === s.id));
+      return judge?.isHeadJudge;
+    })?.id;
+    if (headSlotId) {
+      if (next[index] === headSlotId && dir === 1) return; // head can't move down
+      if (next[target] === headSlotId && dir === -1) return; // can't displace head
+    }
+    [next[index], next[target]] = [next[target], next[index]];
+    setReorderDraft(next);
+  };
+
+  const saveReorder = async () => {
+    if (!reorderRoundId) return;
+    setSavingReorder(true);
+    setReorderError(null);
+    try {
+      const reorder = reorderDraft.map((slotId, i) => ({
+        slotId,
+        position: i + 1,
+      }));
+      const res = await fetch(`/api/tools/dbt/rounds/${reorderRoundId}/slots`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reorder }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setReorderError(d.error || "Failed to save order");
+        return;
+      }
+      await Promise.all([fetchJudges(), fetchRounds()]);
+      setReorderRoundId(null);
+    } catch {
+      setReorderError("Network error");
+    } finally {
+      setSavingReorder(false);
     }
   };
 
@@ -609,6 +675,199 @@ export function JudgeManager({ eventId }: Props) {
           </button>
         </form>
       </div>
+
+      {/* Reorder judges panel — shown when a round is selected */}
+      {openRounds.some((r) => r.judgeSlots.length > 1) && (
+        <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 overflow-hidden">
+          <div className="px-5 py-3 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
+                Reorder Judges (J1 / J2 / J3)
+              </h3>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                Head Judge is always J1 and cannot be moved.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {/* Round selector */}
+            {reorderRoundId === null ? (
+              <div className="space-y-2">
+                {openRounds
+                  .filter((r) => r.judgeSlots.length > 1)
+                  .map((r) => {
+                    const label =
+                      r.topic && r.topic.length > 0
+                        ? `R${r.roundNum} — ${r.topic.length > 45 ? r.topic.substring(0, 45) + "…" : r.topic}`
+                        : `Round ${r.roundNum}`;
+                    // Build current order display from round slots
+                    const orderedSlots = [...r.judgeSlots].sort(
+                      (a, b) => a.position - b.position,
+                    );
+                    return (
+                      <div
+                        key={r.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 dark:border-slate-700 px-3 py-2"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
+                            {label}
+                          </p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                            {orderedSlots.map((s, i) => {
+                              const judge = judges.find((j) =>
+                                j.slots.some((sl) => sl.id === s.id),
+                              );
+                              return (
+                                <span key={s.id}>
+                                  {i > 0 && " → "}
+                                  <span
+                                    className={
+                                      judge?.isHeadJudge
+                                        ? "text-amber-600 dark:text-amber-400 font-semibold"
+                                        : ""
+                                    }
+                                  >
+                                    J{s.position} {judge?.alias ?? "?"}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => openReorder(r.id)}
+                          className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-700 dark:hover:text-amber-400 text-slate-600 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-600 font-medium transition-colors whitespace-nowrap"
+                        >
+                          ↕ Reorder
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              /* Active reorder editor */
+              (() => {
+                const round = rounds.find((r) => r.id === reorderRoundId)!;
+                const label =
+                  round.topic && round.topic.length > 0
+                    ? `R${round.roundNum} — ${round.topic.length > 40 ? round.topic.substring(0, 40) + "…" : round.topic}`
+                    : `Round ${round.roundNum}`;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        {label}
+                      </p>
+                      <button
+                        onClick={() => setReorderRoundId(null)}
+                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      >
+                        ✕ Cancel
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {reorderDraft.map((slotId, index) => {
+                        const slot = round.judgeSlots.find(
+                          (s) => s.id === slotId,
+                        );
+                        const judge = judges.find((j) =>
+                          j.slots.some((s) => s.id === slotId),
+                        );
+                        const isHead = !!judge?.isHeadJudge;
+                        const isFirst = index === 0;
+                        const isLast = index === reorderDraft.length - 1;
+
+                        return (
+                          <div
+                            key={slotId}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors",
+                              isHead
+                                ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20"
+                                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
+                            )}
+                          >
+                            {/* Position badge */}
+                            <span
+                              className={cn(
+                                "text-xs font-bold font-mono w-7 text-center shrink-0",
+                                isHead
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-slate-400 dark:text-slate-500",
+                              )}
+                            >
+                              J{index + 1}
+                            </span>
+
+                            {/* Judge info */}
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block">
+                                {judge?.alias ?? slot?.judge?.id ?? slotId}
+                              </span>
+                              {isHead && (
+                                <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                  Head Judge · locked at J1
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Up / Down controls */}
+                            <div className="flex gap-1 shrink-0">
+                              <button
+                                onClick={() => moveSlot(index, -1)}
+                                disabled={isFirst || isHead}
+                                title="Move up"
+                                className="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-xs"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                onClick={() => moveSlot(index, 1)}
+                                disabled={isLast || isHead}
+                                title="Move down"
+                                className="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-xs"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {reorderError && (
+                      <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                        {reorderError}
+                      </p>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={saveReorder}
+                        disabled={savingReorder}
+                        className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {savingReorder ? "Saving…" : "Save Order"}
+                      </button>
+                      <button
+                        onClick={() => setReorderRoundId(null)}
+                        disabled={savingReorder}
+                        className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Current judges list */}
       <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 overflow-hidden">

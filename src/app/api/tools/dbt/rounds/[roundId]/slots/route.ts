@@ -122,6 +122,117 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 /**
+ * PATCH /api/tools/dbt/rounds/[roundId]/slots
+ * Atomically reorder judge positions in a round.
+ * Body: { reorder: { slotId: string; position: number }[] }
+ * Rules:
+ *   - Every slotId must belong to this round
+ *   - Positions must be unique positive integers
+ *   - The head judge must be position 1
+ * Uses a two-pass transaction to avoid unique-constraint clashes.
+ */
+export async function PATCH(req: NextRequest, { params }: Params) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const user = await validateSession(token);
+    if (!user || !canManage(user.role))
+      return NextResponse.json(
+        { error: "Insufficient permissions" },
+        { status: 403 },
+      );
+
+    const { roundId } = await params;
+    const body = await req.json().catch(() => ({}));
+    const { reorder } = body as {
+      reorder?: { slotId: string; position: number }[];
+    };
+
+    if (!reorder || !Array.isArray(reorder) || reorder.length === 0)
+      return NextResponse.json(
+        { error: "reorder array is required" },
+        { status: 400 },
+      );
+
+    // Validate all slots belong to this round and fetch judge info
+    const slots = await prisma.judgeSlot.findMany({
+      where: { roundId },
+      include: { judge: { select: { isHeadJudge: true } } },
+    });
+    const slotMap = new Map(slots.map((s) => [s.id, s]));
+
+    for (const entry of reorder) {
+      if (!slotMap.has(entry.slotId))
+        return NextResponse.json(
+          { error: `Slot ${entry.slotId} not found in this round` },
+          { status: 400 },
+        );
+      if (!Number.isInteger(entry.position) || entry.position < 1)
+        return NextResponse.json(
+          { error: "Positions must be positive integers" },
+          { status: 400 },
+        );
+    }
+
+    // Check for duplicate positions
+    const posSet = new Set(reorder.map((e) => e.position));
+    if (posSet.size !== reorder.length)
+      return NextResponse.json(
+        { error: "Duplicate positions are not allowed" },
+        { status: 400 },
+      );
+
+    // Enforce: head judge must be at position 1
+    for (const entry of reorder) {
+      const slot = slotMap.get(entry.slotId)!;
+      if (slot.judge.isHeadJudge && entry.position !== 1)
+        return NextResponse.json(
+          { error: "The Head Judge must always be in the J1 position" },
+          { status: 422 },
+        );
+    }
+
+    // Two-pass reorder to avoid unique-constraint ([roundId, position]) clashes.
+    // We use the array-form of $transaction (no persistent tx context) to avoid
+    // the interactive-transaction 5-second timeout (P2028) that hits when many
+    // sequential awaits are needed in a single tx callback.
+    //
+    // Pass 1 — move every slot to a safe temporary position (10000 + index)
+    //          so no two slots share a real position during the transition.
+    await prisma.$transaction(
+      reorder.map((entry, i) =>
+        prisma.judgeSlot.update({
+          where: { id: entry.slotId },
+          data: { position: 10000 + i },
+        }),
+      ),
+    );
+
+    // Pass 2 — assign the final requested positions now that all conflicts
+    //          have been cleared in Pass 1.
+    await prisma.$transaction(
+      reorder.map((entry) =>
+        prisma.judgeSlot.update({
+          where: { id: entry.slotId },
+          data: { position: entry.position },
+        }),
+      ),
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("Slots PATCH error:", e);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
  * DELETE /api/tools/dbt/rounds/[roundId]/slots
  * Remove a judge slot by slotId.
  * Body: { slotId: string }
