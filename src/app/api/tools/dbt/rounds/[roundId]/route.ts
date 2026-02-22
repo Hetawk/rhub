@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateSession } from "@/lib/auth";
 import { canManage, canScore } from "@/lib/dbt/schemas";
+import { SPEECH_CRITERIA, type SpeechTypeKey } from "@/lib/dbt";
 import { cookies } from "next/headers";
 
 type Params = { params: Promise<{ roundId: string }> };
@@ -69,6 +70,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       pauseRound,
       resumeRound,
       resetRound,
+      confirmDrafts,
     } = body as {
       topic?: string;
       swapTeams?: boolean;
@@ -76,6 +78,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       pauseRound?: boolean;
       resumeRound?: boolean;
       resetRound?: boolean;
+      confirmDrafts?: boolean;
     };
 
     const round = await prisma.debateRound.findUnique({
@@ -91,7 +94,42 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
     const canControl = canManage(user.role) || !!isHeadJudge;
 
-    // Re-open completed round: clear completedAt + all score locks → LIVE
+    // Confirm all complete draft scores → isDraft:false  (HEAD_JUDGE / admin only)
+    // Safe to run on both live and completed rounds; does not change round status.
+    if (confirmDrafts) {
+      if (!canControl) {
+        return NextResponse.json(
+          { error: "Only the Head Judge or an admin can confirm draft scores" },
+          { status: 403 },
+        );
+      }
+      const draftScores = await prisma.speechScore.findMany({
+        where: { slot: { roundId }, isDraft: true },
+        include: { criteria: true },
+      });
+      // Only confirm drafts where all expected criteria have been filled in
+      const toConfirm = draftScores.filter((s) => {
+        const expected =
+          SPEECH_CRITERIA[s.speechType as SpeechTypeKey]?.length ?? 5;
+        return s.criteria.length >= expected;
+      });
+      if (toConfirm.length === 0) {
+        return NextResponse.json({
+          confirmed: 0,
+          message: "No complete draft scores found to confirm",
+        });
+      }
+      await prisma.speechScore.updateMany({
+        where: { id: { in: toConfirm.map((s) => s.id) } },
+        data: { isDraft: false },
+      });
+      return NextResponse.json({
+        confirmed: toConfirm.length,
+        skipped: draftScores.length - toConfirm.length,
+      });
+    }
+
+    // Re-open completed round: unlock all scores, clear completedAt → LIVE
     // Must be checked BEFORE the completedAt guard below
     if (resetRound) {
       if (!canControl) {
@@ -100,8 +138,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           { status: 403 },
         );
       }
-      await prisma.speechScore.deleteMany({
+      // Unlock all scores so judges can edit again (scores are preserved)
+      await prisma.speechScore.updateMany({
         where: { slot: { roundId } },
+        data: { isLocked: false, lockedAt: null },
       });
       const reopened = await prisma.debateRound.update({
         where: { id: roundId },

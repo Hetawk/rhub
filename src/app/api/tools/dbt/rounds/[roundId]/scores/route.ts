@@ -155,6 +155,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         { status: 403 },
       );
     }
+    // Never let live-sync PATCH downgrade a judge-submitted (isDraft:false) score back to draft.
+    // Once a judge presses Submit the record is final until explicitly changed via POST.
+    if (existing?.isDraft === false) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
 
     const speechKey = speechType as SpeechTypeKey;
     const criteriaDefs = SPEECH_CRITERIA[speechKey];

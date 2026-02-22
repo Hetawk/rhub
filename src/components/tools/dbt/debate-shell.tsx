@@ -8,6 +8,7 @@ import { JudgeManager } from "./judge-manager";
 import { AudienceVoting } from "./audience-voting";
 import { ScoreboardDisplay } from "./scoreboard-display";
 import { ScoringProgressTicker } from "./scoring-progress-ticker";
+import { UnlockScoresPanel } from "./unlock-scores-panel";
 import { SpeechTimer } from "./speech-timer";
 import { AuthForm } from "./auth-form";
 import { CriteriaGuide } from "./criteria-guide";
@@ -318,13 +319,44 @@ export function DebateShell({ eventSlug }: Props) {
   const conTeam = selectedRound?.roundTeams.find((rt) => rt.side === "CON");
 
   const [reopeningRound, setReopeningRound] = useState(false);
+  const [confirmingDrafts, setConfirmingDrafts] = useState(false);
+  const [unlockPanelOpen, setUnlockPanelOpen] = useState(false);
 
-  // Re-open a completed round (wipes all scores, resets to LIVE)
+  // Promote all complete draft scores to isDraft:false
+  const confirmAllDrafts = async () => {
+    if (!selectedRound || !canComplete) return;
+    setConfirmingDrafts(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${selectedRound.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmDrafts: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to confirm drafts");
+        return;
+      }
+      if (data.confirmed === 0) {
+        alert(
+          "No complete drafts found. Judges may need to fill in all criteria before drafts can be confirmed.",
+        );
+        return;
+      }
+      if (eventSlug) await fetchEvent(eventSlug);
+    } catch {
+      alert("Network error");
+    } finally {
+      setConfirmingDrafts(false);
+    }
+  };
+
+  // Re-open a completed round (unlocks scores, resets to LIVE)
   const reopenRound = async () => {
     if (!selectedRound || !canComplete) return;
     if (
       !confirm(
-        "Re-open this round? All submitted scores will be cleared so judges can re-enter them. This cannot be undone.",
+        "Re-open this round? All scores will be unlocked so judges can continue editing.",
       )
     )
       return;
@@ -1656,6 +1688,43 @@ export function DebateShell({ eventSlug }: Props) {
               {/* Pending-submission ticker — sits between the toggle and the scoring view */}
               <ScoringProgressTicker roundId={selectedRound.id} />
 
+              {/* Unlock Locked Scores panel — HEAD_JUDGE / JUDGE_ADMIN+ only, live rounds */}
+              {canComplete && !isCompleted && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                  <button
+                    onClick={() => setUnlockPanelOpen((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>🔒</span>
+                      <span>Unlock Locked Scores</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        — for judges who timed out before submitting
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {unlockPanelOpen ? "▲" : "▼"}
+                    </span>
+                  </button>
+                  {unlockPanelOpen && (
+                    <div className="px-4 pb-4 pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-[11px] text-muted-foreground mb-3">
+                        Unlocking a score only clears the time-lock on that
+                        speech. All previously entered criteria values are
+                        preserved. The judge can then re-open the speech form
+                        and re-submit.
+                      </p>
+                      <UnlockScoresPanel
+                        roundId={selectedRound.id}
+                        onUnlocked={() =>
+                          eventSlug ? fetchEvent(eventSlug) : undefined
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {viewMode === "cell" ? (
                 <JudgeCellView
                   roundId={selectedRound.id}
@@ -1845,9 +1914,9 @@ export function DebateShell({ eventSlug }: Props) {
 
           {/* Complete / Re-open round (head judge / admin only) */}
           {canComplete && (
-            <div className="text-center pt-4 border-t space-y-3">
+            <div className="pt-4 border-t space-y-3">
               {isCompleted ? (
-                <>
+                <div className="text-center space-y-3">
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm font-medium">
                     <span>✅</span> Round Completed
                   </div>
@@ -1860,24 +1929,46 @@ export function DebateShell({ eventSlug }: Props) {
                       {reopeningRound ? "Re-opening..." : "🔓 Re-open Round"}
                     </button>
                     <p className="text-xs text-muted-foreground mt-1.5">
-                      Clears all scores so judges can re-enter them.
+                      Unlocks all scores so judges can continue editing.
                     </p>
                   </div>
-                </>
+                </div>
               ) : (
                 <>
-                  <button
-                    onClick={completeRound}
-                    disabled={completing}
-                    className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                  >
-                    {completing
-                      ? "Completing..."
-                      : "Complete Round & Lock All Scores"}
-                  </button>
-                  <p className="text-xs text-muted-foreground">
-                    This action is permanent. All scores will be locked.
-                  </p>
+                  {/* Confirm drafts rescue action */}
+                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                      Judge has drafted scores but hasn’t pressed Submit?
+                    </p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">
+                      Use this to officially confirm all complete draft scores
+                      as submitted. Only drafts with all criteria filled are
+                      affected.
+                    </p>
+                    <button
+                      onClick={confirmAllDrafts}
+                      disabled={confirmingDrafts}
+                      className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-white rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {confirmingDrafts
+                        ? "Confirming..."
+                        : "✅ Confirm All Draft Scores"}
+                    </button>
+                  </div>
+                  <div className="text-center">
+                    <button
+                      onClick={completeRound}
+                      disabled={completing}
+                      className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {completing
+                        ? "Completing..."
+                        : "Complete Round & Lock All Scores"}
+                    </button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This action is permanent. All scores will be locked.
+                    </p>
+                  </div>
                 </>
               )}
             </div>

@@ -13,6 +13,8 @@ interface MissingSpeech {
   shortLabel: string;
   /** e.g. "PRO", "CON", or "PRO + CON" */
   sidesLabel: string;
+  /** True when the judge has a draft-saved score but hasn’t pressed Submit */
+  hasDraft: boolean;
 }
 
 interface JudgeTotals {
@@ -24,6 +26,10 @@ interface JudgeTotals {
   isPadded?: boolean;
   /** Speeches that still have no final (non-draft) submission for this judge */
   missingSpeeches: MissingSpeech[];
+  /** Count where judge has a draft saved but not yet submitted */
+  draftedCount: number;
+  /** Count where judge has NO score at all (not even a draft) */
+  trulyMissingCount: number;
   /** True if all speeches are in but the total somehow breaches [140,210] */
   outOfRange: boolean;
 }
@@ -58,6 +64,10 @@ export function ScoreboardDisplay({ roundId }: Props) {
           const submittedPro = new Set<string>();
           const submittedCon = new Set<string>();
 
+          // Track drafted (isDraft:true) speech keys per side — judge filled them in but hasn’t pressed Submit
+          const draftPro = new Set<string>();
+          const draftCon = new Set<string>();
+
           if (proTeam) {
             const proScores = proTeam.scores.filter(
               (s: { slot: { id: string } }) => s.slot.id === slot.id,
@@ -68,11 +78,10 @@ export function ScoreboardDisplay({ roundId }: Props) {
                 sum + (s.totalScore || 0),
               0,
             );
-            proScores
-              .filter((s: { isDraft: boolean }) => !s.isDraft)
-              .forEach((s: { speechType: string }) =>
-                submittedPro.add(s.speechType),
-              );
+            proScores.forEach((s: { speechType: string; isDraft: boolean }) => {
+              if (!s.isDraft) submittedPro.add(s.speechType);
+              else draftPro.add(s.speechType);
+            });
           }
           if (conTeam) {
             const conScores = conTeam.scores.filter(
@@ -84,11 +93,10 @@ export function ScoreboardDisplay({ roundId }: Props) {
                 sum + (s.totalScore || 0),
               0,
             );
-            conScores
-              .filter((s: { isDraft: boolean }) => !s.isDraft)
-              .forEach((s: { speechType: string }) =>
-                submittedCon.add(s.speechType),
-              );
+            conScores.forEach((s: { speechType: string; isDraft: boolean }) => {
+              if (!s.isDraft) submittedCon.add(s.speechType);
+              else draftCon.add(s.speechType);
+            });
           }
 
           // Determine which speeches still need a final submission
@@ -100,16 +108,23 @@ export function ScoreboardDisplay({ roundId }: Props) {
                 const sides: string[] = [];
                 if (proMissing) sides.push("PRO");
                 if (conMissing) sides.push("CON");
+                // Mark as hasDraft if EVERY unsubmitted side has at least a draft saved
+                const hasDraft =
+                  (!proMissing || draftPro.has(st.key)) &&
+                  (!conMissing || draftCon.has(st.key));
                 acc.push({
                   key: st.key,
                   shortLabel: st.shortLabel,
                   sidesLabel: sides.join(" + "),
+                  hasDraft,
                 });
               }
               return acc;
             },
             [] as MissingSpeech[],
           );
+          const draftedCount = missingSpeeches.filter((m) => m.hasDraft).length;
+          const trulyMissingCount = missingSpeeches.length - draftedCount;
 
           // outOfRange is a defensive check: all speeches submitted but total
           // somehow breaches the validated [140, 210] bounds.
@@ -128,6 +143,8 @@ export function ScoreboardDisplay({ roundId }: Props) {
             conTotal,
             hasScores,
             missingSpeeches,
+            draftedCount,
+            trulyMissingCount,
             outOfRange,
             winner:
               proTotal > conTotal
@@ -167,8 +184,10 @@ export function ScoreboardDisplay({ roundId }: Props) {
                   ? ("CON" as const)
                   : ("TIE" as const);
             jt.isPadded = true;
-            // Synthetic slot — no real submissions expected, clear pending list
+            // Synthetic slot — no real submissions expected, clear pending lists
             jt.missingSpeeches = [];
+            jt.draftedCount = 0;
+            jt.trulyMissingCount = 0;
             jt.outOfRange = false;
           }
         });
@@ -190,6 +209,8 @@ export function ScoreboardDisplay({ roundId }: Props) {
           conTotal: avgCon,
           hasScores: false,
           missingSpeeches: [],
+          draftedCount: 0,
+          trulyMissingCount: 0,
           outOfRange: false,
           winner:
             avgPro > avgCon
@@ -310,12 +331,26 @@ export function ScoreboardDisplay({ roundId }: Props) {
                         auto
                       </span>
                     )}
-                    {!jt.isPadded && jt.missingSpeeches.length > 0 && (
+                    {!jt.isPadded && jt.draftedCount > 0 && (
+                      <span
+                        className="ml-1.5 text-[10px] not-italic font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded"
+                        title={`Draft saved (not yet submitted): ${jt.missingSpeeches
+                          .filter((m) => m.hasDraft)
+                          .map((m) => `${m.shortLabel} (${m.sidesLabel})`)
+                          .join(", ")}`}
+                      >
+                        {jt.draftedCount} draft
+                      </span>
+                    )}
+                    {!jt.isPadded && jt.trulyMissingCount > 0 && (
                       <span
                         className="ml-1.5 text-[10px] not-italic font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded"
-                        title={`Missing: ${jt.missingSpeeches.map((m) => `${m.shortLabel} (${m.sidesLabel})`).join(", ")}`}
+                        title={`Not scored yet: ${jt.missingSpeeches
+                          .filter((m) => !m.hasDraft)
+                          .map((m) => `${m.shortLabel} (${m.sidesLabel})`)
+                          .join(", ")}`}
                       >
-                        {jt.missingSpeeches.length} pending
+                        {jt.trulyMissingCount} missing
                       </span>
                     )}
                     {!jt.isPadded && jt.outOfRange && (
