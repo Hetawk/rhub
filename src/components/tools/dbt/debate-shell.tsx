@@ -81,6 +81,8 @@ interface RoundData {
       isHeadJudge: boolean;
       user: { id: string; name: string };
     };
+    /** Non-draft submitted speeches for this judge slot */
+    scores: { id: string; isDraft: boolean }[];
   }[];
 }
 
@@ -186,8 +188,10 @@ export function DebateShell({ eventSlug }: Props) {
 
   // Event setup panel state (JUDGE_ADMIN+)
   const [setupSection, setSetupSection] = useState<
-    "judges" | "teams" | "rounds"
+    "judges" | "teams" | "rounds" | "settings"
   >("judges");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [teamCity, setTeamCity] = useState("");
   const [addingTeam, setAddingTeam] = useState(false);
@@ -201,6 +205,7 @@ export function DebateShell({ eventSlug }: Props) {
   const [addingRound, setAddingRound] = useState(false);
 
   // Round management state (JUDGE_ADMIN+)
+  const [deletingRoundId, setDeletingRoundId] = useState<string | null>(null);
   const [swappingRoundId, setSwappingRoundId] = useState<string | null>(null);
   const [addingSlotRoundId, setAddingSlotRoundId] = useState<string | null>(
     null,
@@ -504,6 +509,32 @@ export function DebateShell({ eventSlug }: Props) {
     }
   };
 
+  // Delete a round
+  const deleteRound = async (roundId: string, roundLabel: string) => {
+    if (
+      !confirm(
+        `Delete "${roundLabel}"? All scores and judge assignments for this round will be permanently removed.`,
+      )
+    )
+      return;
+    setDeletingRoundId(roundId);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}`, {
+        method: "DELETE",
+      });
+      if (res.ok && eventSlug) {
+        await fetchEvent(eventSlug);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete round");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setDeletingRoundId(null);
+    }
+  };
+
   // Update round topic
   const updateRoundTopic = async (roundId: string, topic: string) => {
     try {
@@ -704,31 +735,165 @@ export function DebateShell({ eventSlug }: Props) {
           </div>
 
           {/* Sub-tabs */}
-          <div className="flex border-b border-border">
-            {(["judges", "teams", "rounds"] as const).map((section) => (
-              <button
-                key={section}
-                onClick={() => setSetupSection(section)}
-                className={cn(
-                  "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-                  setupSection === section
-                    ? "text-ekd-gold border-ekd-gold"
-                    : "text-muted-foreground border-transparent hover:text-foreground",
-                )}
-              >
-                {section === "judges"
-                  ? `Judges (${event.judges.length})`
-                  : section === "teams"
-                    ? `Teams (${event.teams.length})`
-                    : "Add Round"}
-              </button>
-            ))}
+          <div className="flex border-b border-border overflow-x-auto">
+            {(["judges", "teams", "rounds", "settings"] as const).map(
+              (section) => (
+                <button
+                  key={section}
+                  onClick={() => setSetupSection(section)}
+                  className={cn(
+                    "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
+                    setupSection === section
+                      ? "text-ekd-gold border-ekd-gold"
+                      : "text-muted-foreground border-transparent hover:text-foreground",
+                  )}
+                >
+                  {section === "judges"
+                    ? `Judges (${event.judges.length})`
+                    : section === "teams"
+                      ? `Teams (${event.teams.length})`
+                      : section === "rounds"
+                        ? "Add Round"
+                        : "⚙ Settings"}
+                </button>
+              ),
+            )}
           </div>
 
           {/* Panel content */}
           <div className="p-4">
             {/* Judges section */}
             {setupSection === "judges" && <JudgeManager eventId={event.id} />}
+
+            {/* Settings section */}
+            {setupSection === "settings" && (
+              <div className="space-y-6">
+                {/* Event Status */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Event Status
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Current:{" "}
+                    <span
+                      className={cn(
+                        "inline-block px-2 py-0.5 rounded text-xs font-semibold",
+                        event.status === "ACTIVE"
+                          ? "bg-emerald-500/15 text-emerald-600"
+                          : event.status === "COMPLETED"
+                            ? "bg-muted text-muted-foreground"
+                            : event.status === "REGISTRATION"
+                              ? "bg-blue-500/15 text-blue-600"
+                              : event.status === "ARCHIVED"
+                                ? "bg-zinc-500/15 text-zinc-500"
+                                : "bg-ekd-gold/15 text-ekd-dark-brown",
+                      )}
+                    >
+                      {event.status}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        "DRAFT",
+                        "REGISTRATION",
+                        "ACTIVE",
+                        "COMPLETED",
+                        "ARCHIVED",
+                      ] as const
+                    ).map((s) => (
+                      <button
+                        key={s}
+                        disabled={event.status === s || updatingStatus}
+                        onClick={async () => {
+                          setUpdatingStatus(true);
+                          try {
+                            const res = await fetch(
+                              `/api/tools/dbt/events/${event.id}`,
+                              {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: s }),
+                              },
+                            );
+                            if (res.ok && eventSlug) {
+                              await fetchEvent(eventSlug);
+                            } else {
+                              const err = await res.json();
+                              alert(err.error || "Failed to update status");
+                            }
+                          } catch {
+                            alert("Network error");
+                          } finally {
+                            setUpdatingStatus(false);
+                          }
+                        }}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                          event.status === s
+                            ? "border-ekd-gold bg-ekd-gold/15 text-ekd-dark-brown cursor-default"
+                            : "border-border text-muted-foreground hover:border-ekd-gold/60 hover:text-foreground disabled:opacity-40",
+                        )}
+                      >
+                        {s === "ACTIVE"
+                          ? "🟢 ACTIVE"
+                          : s === "COMPLETED"
+                            ? "✅ COMPLETED"
+                            : s === "REGISTRATION"
+                              ? "📋 REGISTRATION"
+                              : s === "ARCHIVED"
+                                ? "🗄 ARCHIVED"
+                                : "📝 DRAFT"}
+                      </button>
+                    ))}
+                  </div>
+                  {updatingStatus && (
+                    <p className="text-xs text-muted-foreground">Saving…</p>
+                  )}
+                </div>
+
+                {/* Danger zone */}
+                <div className="border border-red-200 dark:border-red-900/50 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">
+                    Danger Zone
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete this event and all its rounds, scores,
+                    and data. This cannot be undone.
+                  </p>
+                  <button
+                    disabled={deletingEvent}
+                    onClick={async () => {
+                      const confirmed = window.confirm(
+                        `Delete "${event.title}" permanently? This will remove all rounds and scores. This cannot be undone.`,
+                      );
+                      if (!confirmed) return;
+                      setDeletingEvent(true);
+                      try {
+                        const res = await fetch(
+                          `/api/tools/dbt/events/${event.id}`,
+                          { method: "DELETE" },
+                        );
+                        if (res.ok) {
+                          // Redirect back to event list
+                          window.location.href = "/tools/dbt";
+                        } else {
+                          const err = await res.json();
+                          alert(err.error || "Failed to delete event");
+                        }
+                      } catch {
+                        alert("Network error");
+                      } finally {
+                        setDeletingEvent(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {deletingEvent ? "Deleting…" : "🗑 Delete Event"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Teams section */}
             {setupSection === "teams" && (
@@ -970,7 +1135,7 @@ export function DebateShell({ eventSlug }: Props) {
                           className="border border-border rounded-xl bg-muted/20 p-3 space-y-3"
                         >
                           <div className="flex items-start justify-between gap-2 flex-wrap">
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-foreground">
                                 {r.title || `Round ${r.roundNum}`}
                               </p>
@@ -978,16 +1143,39 @@ export function DebateShell({ eventSlug }: Props) {
                                 {r.topic}
                               </p>
                             </div>
-                            <span
-                              className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
-                                r.completedAt
-                                  ? "bg-muted text-muted-foreground"
-                                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                                  r.completedAt
+                                    ? "bg-muted text-muted-foreground"
+                                    : r.status === "LIVE"
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 animate-pulse"
+                                      : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                                )}
+                              >
+                                {r.completedAt
+                                  ? "✅ Done"
+                                  : r.status === "LIVE"
+                                    ? "🔴 LIVE"
+                                    : r.status}
+                              </span>
+                              {!r.completedAt && (
+                                <button
+                                  onClick={() =>
+                                    deleteRound(
+                                      r.id,
+                                      r.title || `Round ${r.roundNum}`,
+                                    )
+                                  }
+                                  disabled={deletingRoundId === r.id}
+                                  title="Delete this round"
+                                  className="flex items-center justify-center w-6 h-6 rounded text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-40 text-xs"
+                                >
+                                  {deletingRoundId === r.id ? "…" : "🗑"}
+                                </button>
                               )}
-                            >
-                              {r.completedAt ? "Done" : r.status}
-                            </span>
+                            </div>
                           </div>
 
                           {/* PRO / CON with swap */}
@@ -1048,41 +1236,111 @@ export function DebateShell({ eventSlug }: Props) {
                                 {r.judgeSlots
                                   .slice()
                                   .sort((a, b) => a.position - b.position)
-                                  .map((slot) => (
-                                    <div
-                                      key={slot.id}
-                                      className={cn(
-                                        "group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors",
-                                        slot.judge.isHeadJudge
-                                          ? "bg-[#C8A061]/10 border-[#C8A061]/40 text-[#1F1C18] dark:text-[#C8A061]"
-                                          : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300",
-                                      )}
-                                    >
-                                      <span className="font-mono text-[10px] opacity-60">
-                                        J{slot.position}
-                                      </span>
-                                      <span>{slot.judge.alias}</span>
-                                      {slot.judge.isHeadJudge && (
-                                        <span className="text-[9px] bg-[#C8A061] text-white px-1 py-0.5 rounded font-bold uppercase tracking-wide">
-                                          HEAD
-                                        </span>
-                                      )}
-                                      {!r.completedAt && (
-                                        <button
-                                          onClick={() =>
-                                            removeJudgeFromSlot(r.id, slot.id)
-                                          }
-                                          disabled={removingSlotKey === slot.id}
-                                          title="Remove from this round"
-                                          className="ml-0.5 w-4 h-4 flex items-center justify-center rounded text-current opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-all disabled:opacity-30"
-                                        >
-                                          {removingSlotKey === slot.id
-                                            ? "…"
-                                            : "✕"}
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
+                                  .map((slot) => {
+                                    // 7 speech types × 2 sides = 14 total scorable speeches
+                                    const submitted = slot.scores.filter(
+                                      (s) => !s.isDraft,
+                                    ).length;
+                                    const total = 14;
+                                    const pct = Math.round(
+                                      (submitted / total) * 100,
+                                    );
+                                    const hasStarted = submitted > 0;
+                                    const isDone = submitted === total;
+                                    return (
+                                      <div
+                                        key={slot.id}
+                                        className={cn(
+                                          "group flex flex-col gap-0.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors min-w-[80px]",
+                                          slot.judge.isHeadJudge
+                                            ? "bg-[#C8A061]/10 border-[#C8A061]/40 text-[#1F1C18] dark:text-[#C8A061]"
+                                            : isDone
+                                              ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300"
+                                              : hasStarted
+                                                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300"
+                                                : "bg-muted/50 border-border text-muted-foreground",
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-1.5">
+                                          {/* Live dot */}
+                                          <span
+                                            className={cn(
+                                              "w-1.5 h-1.5 rounded-full shrink-0",
+                                              isDone
+                                                ? "bg-emerald-500"
+                                                : hasStarted
+                                                  ? "bg-blue-500 animate-pulse"
+                                                  : "bg-muted-foreground/40",
+                                            )}
+                                          />
+                                          <span className="font-mono text-[10px] opacity-60">
+                                            J{slot.position}
+                                          </span>
+                                          <span className="font-semibold">
+                                            {slot.judge.alias}
+                                          </span>
+                                          {slot.judge.isHeadJudge && (
+                                            <span className="text-[9px] bg-[#C8A061] text-white px-1 py-0.5 rounded font-bold uppercase tracking-wide">
+                                              HEAD
+                                            </span>
+                                          )}
+                                          {isDone && (
+                                            <span className="text-[9px] bg-emerald-500 text-white px-1 py-0.5 rounded font-bold uppercase">
+                                              ✓ Done
+                                            </span>
+                                          )}
+                                          {!r.completedAt && (
+                                            <button
+                                              onClick={() =>
+                                                removeJudgeFromSlot(
+                                                  r.id,
+                                                  slot.id,
+                                                )
+                                              }
+                                              disabled={
+                                                removingSlotKey === slot.id
+                                              }
+                                              className="ml-0.5 w-4 h-4 flex items-center justify-center rounded text-current opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-all disabled:opacity-30"
+                                            >
+                                              {removingSlotKey === slot.id
+                                                ? "…"
+                                                : "✕"}
+                                            </button>
+                                          )}
+                                        </div>
+                                        {/* Progress bar */}
+                                        {r.status !== "SCHEDULED" && (
+                                          <div className="w-full">
+                                            <div className="flex justify-between text-[9px] opacity-60 mb-0.5">
+                                              <span>
+                                                {hasStarted
+                                                  ? isDone
+                                                    ? "Complete"
+                                                    : "Scoring…"
+                                                  : "Not started"}
+                                              </span>
+                                              <span>
+                                                {submitted}/{total}
+                                              </span>
+                                            </div>
+                                            <div className="h-1 w-full bg-current/10 rounded-full overflow-hidden">
+                                              <div
+                                                className={cn(
+                                                  "h-full rounded-full transition-all",
+                                                  isDone
+                                                    ? "bg-emerald-500"
+                                                    : hasStarted
+                                                      ? "bg-blue-500"
+                                                      : "bg-muted-foreground/30",
+                                                )}
+                                                style={{ width: `${pct}%` }}
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                               </div>
                             )}
 

@@ -7,6 +7,42 @@ import { cookies } from "next/headers";
 type Params = { params: Promise<{ roundId: string }> };
 
 /**
+ * DELETE /api/tools/dbt/rounds/[roundId]
+ * Permanently delete a round and all its scores/slots. Requires JUDGE_ADMIN+.
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await validateSession(token);
+    if (!user || !canManage(user.role))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { roundId } = await params;
+
+    const round = await prisma.debateRound.findUnique({
+      where: { id: roundId },
+    });
+    if (!round)
+      return NextResponse.json({ error: "Round not found" }, { status: 404 });
+
+    // Cascade: Prisma schema has onDelete:Cascade on SpeechScore → JudgeSlot
+    // and on JudgeSlot → DebateRound, so deleting the round removes everything.
+    await prisma.debateRound.delete({ where: { id: roundId } });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("Round DELETE error:", e);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
  * PATCH /api/tools/dbt/rounds/[roundId]
  * Update round — swap PRO/CON sides or update the topic.
  * Requires JUDGE_ADMIN+.

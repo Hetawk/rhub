@@ -26,6 +26,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
                     user: { select: { id: true, name: true, email: true } },
                   },
                 },
+                scores: { select: { id: true, isDraft: true } },
               },
             },
           },
@@ -98,6 +99,39 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     console.error("Update event error:", error);
     return NextResponse.json(
       { error: "Failed to update event" },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE /api/tools/dbt/events/[id] — Delete event (JUDGE_ADMIN+)
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const user = await validateSession(token);
+    if (!user || !canManage(user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    const event = await prisma.debateEvent.findUnique({ where: { id } });
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    // Cascade delete — Prisma onDelete:Cascade handles children
+    await prisma.debateEvent.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Delete event error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete event" },
       { status: 500 },
     );
   }
