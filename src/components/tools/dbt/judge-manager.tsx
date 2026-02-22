@@ -642,7 +642,7 @@ export function JudgeManager({ eventId }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     {editAliasId === j.id ? (
                       <form
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-1.5 flex-wrap"
                         onSubmit={(e) => {
                           e.preventDefault();
                           updateAlias(j.id, editAliasValue);
@@ -652,21 +652,23 @@ export function JudgeManager({ eventId }: Props) {
                           autoFocus
                           value={editAliasValue}
                           onChange={(e) => setEditAliasValue(e.target.value)}
-                          className="border border-border rounded px-2 py-0.5 text-sm text-foreground bg-card focus:outline-none focus:ring-1 focus:ring-ekd-gold/40 w-28"
+                          onKeyDown={(e) => e.key === "Escape" && setEditAliasId(null)}
+                          placeholder="Display name"
+                          className="border border-ekd-gold/50 rounded-md px-2.5 py-1 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 w-44"
                         />
                         <button
                           type="submit"
                           disabled={savingAlias || !editAliasValue.trim()}
-                          className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded px-1.5 py-1 font-medium disabled:opacity-50"
+                          className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-md px-2.5 py-1 font-medium disabled:opacity-50 transition-colors"
                         >
-                          {savingAlias ? "…" : "✓"}
+                          {savingAlias ? "Saving…" : "Save"}
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditAliasId(null)}
-                          className="text-[10px] bg-muted hover:bg-accent text-muted-foreground rounded px-1.5 py-1"
+                          className="text-xs bg-muted hover:bg-accent text-muted-foreground rounded-md px-2.5 py-1 transition-colors"
                         >
-                          ✕
+                          Cancel
                         </button>
                       </form>
                     ) : (
@@ -675,14 +677,14 @@ export function JudgeManager({ eventId }: Props) {
                           {j.alias}
                         </span>
                         <button
-                          title="Edit alias"
+                          title="Edit display name"
                           onClick={() => {
                             setEditAliasId(j.id);
                             setEditAliasValue(j.alias);
                           }}
-                          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors text-xs"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:border-ekd-gold/60 hover:text-ekd-gold transition-colors"
                         >
-                          ✎
+                          ✏ Edit name
                         </button>
                       </>
                     )}
