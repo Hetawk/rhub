@@ -317,6 +317,37 @@ export function DebateShell({ eventSlug }: Props) {
   const proTeam = selectedRound?.roundTeams.find((rt) => rt.side === "PRO");
   const conTeam = selectedRound?.roundTeams.find((rt) => rt.side === "CON");
 
+  const [reopeningRound, setReopeningRound] = useState(false);
+
+  // Re-open a completed round (wipes all scores, resets to LIVE)
+  const reopenRound = async () => {
+    if (!selectedRound || !canComplete) return;
+    if (
+      !confirm(
+        "Re-open this round? All submitted scores will be cleared so judges can re-enter them. This cannot be undone.",
+      )
+    )
+      return;
+    setReopeningRound(true);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${selectedRound.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetRound: true }),
+      });
+      if (res.ok && eventSlug) {
+        await fetchEvent(eventSlug);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to re-open round");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setReopeningRound(false);
+    }
+  };
+
   // Complete round handler
   const completeRound = async () => {
     if (!selectedRound || isCompleted || !canComplete) return;
@@ -1812,21 +1843,43 @@ export function DebateShell({ eventSlug }: Props) {
             </div>
           )}
 
-          {/* Complete round button (head judge / admin only) */}
-          {canComplete && !isCompleted && (
-            <div className="text-center pt-4 border-t">
-              <button
-                onClick={completeRound}
-                disabled={completing}
-                className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-              >
-                {completing
-                  ? "Completing..."
-                  : "Complete Round & Lock All Scores"}
-              </button>
-              <p className="text-xs text-muted-foreground mt-2">
-                This action is permanent. All scores will be locked.
-              </p>
+          {/* Complete / Re-open round (head judge / admin only) */}
+          {canComplete && (
+            <div className="text-center pt-4 border-t space-y-3">
+              {isCompleted ? (
+                <>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm font-medium">
+                    <span>✅</span> Round Completed
+                  </div>
+                  <div>
+                    <button
+                      onClick={reopenRound}
+                      disabled={reopeningRound}
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {reopeningRound ? "Re-opening..." : "🔓 Re-open Round"}
+                    </button>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Clears all scores so judges can re-enter them.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={completeRound}
+                    disabled={completing}
+                    className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {completing
+                      ? "Completing..."
+                      : "Complete Round & Lock All Scores"}
+                  </button>
+                  <p className="text-xs text-muted-foreground">
+                    This action is permanent. All scores will be locked.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </>

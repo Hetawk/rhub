@@ -652,7 +652,9 @@ export function JudgeManager({ eventId }: Props) {
                           autoFocus
                           value={editAliasValue}
                           onChange={(e) => setEditAliasValue(e.target.value)}
-                          onKeyDown={(e) => e.key === "Escape" && setEditAliasId(null)}
+                          onKeyDown={(e) =>
+                            e.key === "Escape" && setEditAliasId(null)
+                          }
                           placeholder="Display name"
                           className="border border-ekd-gold/50 rounded-md px-2.5 py-1 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-ekd-gold/40 w-44"
                         />

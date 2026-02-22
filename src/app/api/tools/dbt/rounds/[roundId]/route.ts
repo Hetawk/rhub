@@ -84,17 +84,46 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
     if (!round)
       return NextResponse.json({ error: "Round not found" }, { status: 404 });
-    if (round.completedAt)
-      return NextResponse.json(
-        { error: "Round is already completed" },
-        { status: 400 },
-      );
 
     // Helper: head judge or admin check
     const isHeadJudge = await prisma.debateJudge.findFirst({
       where: { eventId: round.eventId, userId: user.id, isHeadJudge: true },
     });
     const canControl = canManage(user.role) || !!isHeadJudge;
+
+    // Re-open completed round: clear completedAt + all score locks → LIVE
+    // Must be checked BEFORE the completedAt guard below
+    if (resetRound) {
+      if (!canControl) {
+        return NextResponse.json(
+          { error: "Only the Head Judge or an admin can re-open this round" },
+          { status: 403 },
+        );
+      }
+      await prisma.speechScore.deleteMany({
+        where: { slot: { roundId } },
+      });
+      const reopened = await prisma.debateRound.update({
+        where: { id: roundId },
+        data: {
+          status: "LIVE",
+          pausedAt: null,
+          pausedBy: null,
+          scoreLockDeadline: null,
+          scoreLockSetBy: null,
+          completedAt: null,
+          completedBy: null,
+        },
+      });
+      return NextResponse.json({ round: reopened });
+    }
+
+    // All other actions are blocked on completed rounds
+    if (round.completedAt)
+      return NextResponse.json(
+        { error: "This round is completed. No further edits allowed." },
+        { status: 400 },
+      );
 
     // Start round: SCHEDULED → LIVE
     if (startRound) {
@@ -159,38 +188,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ round: resumed });
     }
 
-    // Reset round: wipe all scores + back to LIVE (judges re-enter)
-    if (resetRound) {
-      if (!canControl) {
-        return NextResponse.json(
-          { error: "Only the Head Judge or an admin can reset this round" },
-          { status: 403 },
-        );
-      }
-      if (round.status === "SCHEDULED") {
-        return NextResponse.json(
-          { error: "Round has not started yet" },
-          { status: 400 },
-        );
-      }
-      // Delete all speech scores for this round's judge slots
-      await prisma.speechScore.deleteMany({
-        where: { slot: { roundId } },
-      });
-      const reset = await prisma.debateRound.update({
-        where: { id: roundId },
-        data: {
-          status: "LIVE",
-          pausedAt: null,
-          pausedBy: null,
-          scoreLockDeadline: null,
-          scoreLockSetBy: null,
-          completedAt: null,
-          completedBy: null,
-        },
-      });
-      return NextResponse.json({ round: reset });
-    }
+    // (resetRound is handled above before completedAt guard)
 
     // Update topic — JUDGE_ADMIN+ only
     if (topic !== undefined && String(topic).trim()) {
