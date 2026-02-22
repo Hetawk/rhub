@@ -447,16 +447,18 @@ model DebateJudge {
 }
 
 model JudgeSlot {
-    id       String @id @default(cuid())
-    roundId  String
-    judgeId  String
-    position Int // 1=J1, 2=J2, 3=J3
+    id            String  @id @default(cuid())
+    roundId       String
+    judgeId       String? // nullable: set to null when judge is removed but scores must be preserved
+    position      Int // 1=J1, 2=J2, 3=J3
+    isRoundHead   Boolean @default(false) // true = this judge is the head judge for THIS round
+    // Snapshot of alias at time of removal (preserved for score display after detach)
+    detachedAlias String?
 
     round  DebateRound   @relation(fields: [roundId], references: [id], onDelete: Cascade)
-    judge  DebateJudge   @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+    judge  DebateJudge?  @relation(fields: [judgeId], references: [id], onDelete: SetNull)
     scores SpeechScore[]
 
-    @@unique([roundId, judgeId])
     @@unique([roundId, position])
     @@index([roundId])
     @@index([judgeId])

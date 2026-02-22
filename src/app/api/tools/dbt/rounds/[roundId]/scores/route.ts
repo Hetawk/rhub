@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateSession } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { submitScoreSchema, safeParse, canScore } from "@/lib/dbt/schemas";
+import {
+  submitScoreSchema,
+  safeParse,
+  canScore,
+  canManage,
+} from "@/lib/dbt/schemas";
 import { SCORING, SPEECH_CRITERIA, type SpeechTypeKey } from "@/lib/dbt";
 
 type Params = { params: Promise<{ roundId: string }> };
@@ -123,19 +128,47 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       );
     }
 
-    const { roundTeamId, speechType, criteriaScores } = await req.json();
+    const { roundTeamId, speechType, criteriaScores, targetSlotId } =
+      await req.json();
     if (!roundTeamId || !speechType || !criteriaScores) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    const slot = await prisma.judgeSlot.findFirst({
-      where: { roundId, judge: { userId: user.id } },
-    });
-    if (!slot)
-      return NextResponse.json(
-        { error: "Not assigned as judge" },
-        { status: 403 },
-      );
+    let slot: { id: string } | null;
+    if (targetSlotId) {
+      // ── Proxy draft-sync: caller must be JUDGE_ADMIN+ or be the round's head judge ──
+      const isManager = canManage(user.role);
+      if (!isManager) {
+        const callerSlot = await prisma.judgeSlot.findFirst({
+          where: { roundId, judge: { userId: user.id }, isRoundHead: true },
+        });
+        if (!callerSlot)
+          return NextResponse.json(
+            {
+              error:
+                "Insufficient permissions to draft-sync on behalf of another judge",
+            },
+            { status: 403 },
+          );
+      }
+      slot = await prisma.judgeSlot.findFirst({
+        where: { id: targetSlotId, roundId },
+      });
+      if (!slot)
+        return NextResponse.json(
+          { error: "Target slot not found in this round" },
+          { status: 404 },
+        );
+    } else {
+      slot = await prisma.judgeSlot.findFirst({
+        where: { roundId, judge: { userId: user.id } },
+      });
+      if (!slot)
+        return NextResponse.json(
+          { error: "Not assigned as judge" },
+          { status: 403 },
+        );
+    }
 
     // Check existing score isn't locked
     const existing = await prisma.speechScore.findUnique({
@@ -292,26 +325,56 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     const body = await req.json();
+    // Extract proxy param before schema validation (not part of submit schema)
+    const targetSlotId: string | undefined = body.targetSlotId;
     const parsed = safeParse(submitScoreSchema, body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const data = parsed.data;
 
-    // Verify user is assigned as judge for this round
-    const slot = await prisma.judgeSlot.findFirst({
-      where: {
-        roundId,
-        judge: { userId: user.id },
-      },
-      include: { judge: true },
-    });
-
-    if (!slot) {
-      return NextResponse.json(
-        { error: "You are not assigned as a judge for this round" },
-        { status: 403 },
-      );
+    // Resolve which slot to submit for (self or on behalf)
+    let slot: { id: string; judge: { isHeadJudge: boolean } | null } | null;
+    if (targetSlotId) {
+      // ── Proxy submit: caller must be JUDGE_ADMIN+ or be this round's head judge ──
+      const isManager = canManage(user.role);
+      if (!isManager) {
+        const callerSlot = await prisma.judgeSlot.findFirst({
+          where: { roundId, judge: { userId: user.id }, isRoundHead: true },
+        });
+        if (!callerSlot)
+          return NextResponse.json(
+            {
+              error:
+                "Insufficient permissions to submit on behalf of another judge",
+            },
+            { status: 403 },
+          );
+      }
+      slot = await prisma.judgeSlot.findFirst({
+        where: { id: targetSlotId, roundId },
+        include: { judge: true },
+      });
+      if (!slot)
+        return NextResponse.json(
+          { error: "Target slot not found in this round" },
+          { status: 404 },
+        );
+    } else {
+      // Normal submit: find caller's own slot
+      slot = await prisma.judgeSlot.findFirst({
+        where: {
+          roundId,
+          judge: { userId: user.id },
+        },
+        include: { judge: true },
+      });
+      if (!slot) {
+        return NextResponse.json(
+          { error: "You are not assigned as a judge for this round" },
+          { status: 403 },
+        );
+      }
     }
 
     // Validate criteria against speech config

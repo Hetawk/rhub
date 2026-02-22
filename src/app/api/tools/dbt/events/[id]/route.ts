@@ -105,7 +105,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/tools/dbt/events/[id] — Delete event (JUDGE_ADMIN+)
-export async function DELETE(_req: NextRequest, { params }: Params) {
+// Data-protection rule: blocked when the event contains any submitted scores.
+// Pass ?force=true to override after explicit user confirmation.
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
@@ -118,10 +120,32 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     }
 
     const { id } = await params;
+    const force = req.nextUrl.searchParams.get("force") === "true";
 
     const event = await prisma.debateEvent.findUnique({ where: { id } });
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    // ── Data-protection check ────────────────────────────────────────────
+    if (!force) {
+      const submittedScore = await prisma.speechScore.findFirst({
+        where: {
+          isDraft: false,
+          slot: { round: { eventId: id } },
+        },
+        select: { id: true },
+      });
+      if (submittedScore)
+        return NextResponse.json(
+          {
+            error:
+              "This event contains submitted scores. Deleting it will permanently destroy all scoring data. " +
+              "To confirm, resend this request with ?force=true.",
+            hasSubmittedScores: true,
+          },
+          { status: 409 },
+        );
     }
 
     // Cascade delete — Prisma onDelete:Cascade handles children

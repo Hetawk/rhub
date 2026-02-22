@@ -9,6 +9,7 @@ import { AudienceVoting } from "./audience-voting";
 import { ScoreboardDisplay } from "./scoreboard-display";
 import { ScoringProgressTicker } from "./scoring-progress-ticker";
 import { UnlockScoresPanel } from "./unlock-scores-panel";
+import { ProxyScorePanel } from "./proxy-score-panel";
 import { SpeechTimer } from "./speech-timer";
 import { AuthForm } from "./auth-form";
 import { CriteriaGuide } from "./criteria-guide";
@@ -321,6 +322,18 @@ export function DebateShell({ eventSlug }: Props) {
   const [reopeningRound, setReopeningRound] = useState(false);
   const [confirmingDrafts, setConfirmingDrafts] = useState(false);
   const [unlockPanelOpen, setUnlockPanelOpen] = useState(false);
+  const [proxyPanelOpen, setProxyPanelOpen] = useState(false);
+  const [scoreboardFullscreen, setScoreboardFullscreen] = useState(false);
+
+  // Close fullscreen scoreboard on Escape key
+  useEffect(() => {
+    if (!scoreboardFullscreen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setScoreboardFullscreen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [scoreboardFullscreen]);
 
   // Promote all complete draft scores to isDraft:false
   const confirmAllDrafts = async () => {
@@ -1612,7 +1625,62 @@ export function DebateShell({ eventSlug }: Props) {
 
           {/* Tab content */}
           {tab === "scoreboard" && (
-            <ScoreboardDisplay roundId={selectedRound.id} />
+            <div className="space-y-3">
+              {/* Full-view launcher — admin only (head judge +) */}
+              {canComplete && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setScoreboardFullscreen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#182e5f] hover:bg-[#1e3a77] text-white rounded-lg transition-colors"
+                    title="Open public full-screen scoreboard (judge names hidden)"
+                  >
+                    <span>⛶</span> Full View
+                  </button>
+                </div>
+              )}
+              <ScoreboardDisplay roundId={selectedRound.id} />
+            </div>
+          )}
+
+          {/* ── Fullscreen public scoreboard overlay ── */}
+          {scoreboardFullscreen && (
+            <div
+              className="fixed inset-0 z-[9999] bg-[#0d1b2e] flex flex-col"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Public scoreboard"
+            >
+              {/* Top bar */}
+              <div className="flex items-center justify-between px-6 py-3 bg-[#182e5f] shrink-0">
+                <span className="text-white font-bold tracking-wide text-sm">
+                  Live Scoreboard
+                  {selectedRound.title
+                    ? ` — ${selectedRound.title}`
+                    : selectedRound.topic
+                      ? ` — ${selectedRound.topic.length > 60 ? selectedRound.topic.slice(0, 60) + "…" : selectedRound.topic}`
+                      : ""}
+                </span>
+                <button
+                  onClick={() => setScoreboardFullscreen(false)}
+                  className="text-white/70 hover:text-white text-sm font-semibold px-3 py-1 rounded-md hover:bg-white/10 transition-colors"
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {/* Scoreboard centred in remaining space */}
+              <div className="flex-1 overflow-y-auto flex items-start justify-center p-6 pt-8">
+                <div className="w-full max-w-2xl">
+                  <ScoreboardDisplay roundId={selectedRound.id} anonymise />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="shrink-0 text-center py-2 text-[11px] text-white/30">
+                Judge names are hidden in this view &nbsp;·&nbsp; Scores update
+                automatically every 5 seconds
+              </div>
+            </div>
           )}
 
           {tab === "scoring" && (
@@ -1717,6 +1785,41 @@ export function DebateShell({ eventSlug }: Props) {
                       <UnlockScoresPanel
                         roundId={selectedRound.id}
                         onUnlocked={() =>
+                          eventSlug ? fetchEvent(eventSlug) : undefined
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Submit on Behalf panel — HEAD_JUDGE / JUDGE_ADMIN+ only, live rounds */}
+              {canComplete && !isCompleted && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                  <button
+                    onClick={() => setProxyPanelOpen((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>👥</span>
+                      <span>Submit on Behalf of a Judge</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        — for head judges or admins submitting proxy scores
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {proxyPanelOpen ? "▲" : "▼"}
+                    </span>
+                  </button>
+                  {proxyPanelOpen && (
+                    <div className="px-4 pb-4 pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-[11px] text-muted-foreground mb-3">
+                        Select a judge from this round and fill in their scores.
+                        The submission will be recorded under their judge slot.
+                      </p>
+                      <ProxyScorePanel
+                        roundId={selectedRound.id}
+                        onSubmitted={() =>
                           eventSlug ? fetchEvent(eventSlug) : undefined
                         }
                       />

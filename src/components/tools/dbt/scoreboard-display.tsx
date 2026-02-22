@@ -6,6 +6,13 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   roundId: string;
+  /**
+   * When true the judge column shows only "J1", "J2", … (no alias) and
+   * all status badges (draft / missing / out-of-range) are hidden.
+   * Used for the public full-view display so the audience cannot
+   * identify individual judges.
+   */
+  anonymise?: boolean;
 }
 
 interface MissingSpeech {
@@ -34,7 +41,7 @@ interface JudgeTotals {
   outOfRange: boolean;
 }
 
-export function ScoreboardDisplay({ roundId }: Props) {
+export function ScoreboardDisplay({ roundId, anonymise = false }: Props) {
   const [judgeTotals, setJudgeTotals] = useState<JudgeTotals[]>([]);
   const [audienceVotes, setAudienceVotes] = useState({ pro: 0, con: 0 });
   const [loading, setLoading] = useState(true);
@@ -257,8 +264,9 @@ export function ScoreboardDisplay({ roundId }: Props) {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Synthetic score banner — shown whenever any slot is padded */}
-        {judgeTotals.some((jt) => jt.isPadded) &&
+        {/* Synthetic score banner — hidden in anonymise mode to avoid name leaks */}
+        {!anonymise &&
+          judgeTotals.some((jt) => jt.isPadded) &&
           (() => {
             const absentSlots = judgeTotals.filter(
               (jt) => jt.isPadded && jt.judgeAlias !== "Panel Avg",
@@ -322,41 +330,56 @@ export function ScoreboardDisplay({ roundId }: Props) {
                   )}
                 >
                   <td className="px-3 py-2.5 font-medium text-slate-700 dark:text-slate-200 not-italic">
-                    <span className="text-slate-400 dark:text-slate-500 font-mono text-xs mr-1.5">
-                      J{jt.position}
-                    </span>
-                    {jt.judgeAlias}
-                    {jt.isPadded && (
-                      <span className="ml-1.5 text-[10px] not-italic font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
-                        auto
+                    {anonymise ? (
+                      // Public / full-view mode — show only J-number, no name or status
+                      <span className="font-mono font-semibold text-slate-600 dark:text-slate-300">
+                        J{jt.position}
+                        {jt.isPadded && (
+                          <span className="ml-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+                            avg
+                          </span>
+                        )}
                       </span>
-                    )}
-                    {!jt.isPadded && jt.draftedCount > 0 && (
-                      <span
-                        className="ml-1.5 text-[10px] not-italic font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded"
-                        title={`Draft saved (not yet submitted): ${jt.missingSpeeches
-                          .filter((m) => m.hasDraft)
-                          .map((m) => `${m.shortLabel} (${m.sidesLabel})`)
-                          .join(", ")}`}
-                      >
-                        {jt.draftedCount} draft
-                      </span>
-                    )}
-                    {!jt.isPadded && jt.trulyMissingCount > 0 && (
-                      <span
-                        className="ml-1.5 text-[10px] not-italic font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded"
-                        title={`Not scored yet: ${jt.missingSpeeches
-                          .filter((m) => !m.hasDraft)
-                          .map((m) => `${m.shortLabel} (${m.sidesLabel})`)
-                          .join(", ")}`}
-                      >
-                        {jt.trulyMissingCount} missing
-                      </span>
-                    )}
-                    {!jt.isPadded && jt.outOfRange && (
-                      <span className="ml-1.5 text-[10px] not-italic font-semibold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded">
-                        ⛔ out of range
-                      </span>
+                    ) : (
+                      // Admin / internal view — full name + status badges
+                      <>
+                        <span className="text-slate-400 dark:text-slate-500 font-mono text-xs mr-1.5">
+                          J{jt.position}
+                        </span>
+                        {jt.judgeAlias}
+                        {jt.isPadded && (
+                          <span className="ml-1.5 text-[10px] not-italic font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+                            auto
+                          </span>
+                        )}
+                        {!jt.isPadded && jt.draftedCount > 0 && (
+                          <span
+                            className="ml-1.5 text-[10px] not-italic font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded"
+                            title={`Draft saved (not yet submitted): ${jt.missingSpeeches
+                              .filter((m) => m.hasDraft)
+                              .map((m) => `${m.shortLabel} (${m.sidesLabel})`)
+                              .join(", ")}`}
+                          >
+                            {jt.draftedCount} draft
+                          </span>
+                        )}
+                        {!jt.isPadded && jt.trulyMissingCount > 0 && (
+                          <span
+                            className="ml-1.5 text-[10px] not-italic font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded"
+                            title={`Not scored yet: ${jt.missingSpeeches
+                              .filter((m) => !m.hasDraft)
+                              .map((m) => `${m.shortLabel} (${m.sidesLabel})`)
+                              .join(", ")}`}
+                          >
+                            {jt.trulyMissingCount} missing
+                          </span>
+                        )}
+                        {!jt.isPadded && jt.outOfRange && (
+                          <span className="ml-1.5 text-[10px] not-italic font-semibold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded">
+                            ⛔ out of range
+                          </span>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">

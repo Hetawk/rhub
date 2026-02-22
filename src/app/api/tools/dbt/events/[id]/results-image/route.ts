@@ -99,7 +99,7 @@ export async function GET(req: NextRequest, { params }: Params) {
             .reduce((sum, s) => sum + (s.totalScore || 0), 0);
         }
         return {
-          alias: slot.judge.alias,
+          alias: slot.judge?.alias ?? slot.detachedAlias ?? "Unknown",
           proTotal,
           conTotal,
           winner: (proTotal > conTotal

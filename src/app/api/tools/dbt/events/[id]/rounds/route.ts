@@ -143,9 +143,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     });
 
     if (event && round.judgeSlots.length > 0) {
-      const emailPromises = round.judgeSlots.map((slot) =>
+      const emailPromises = round.judgeSlots
+        .filter((slot) => slot.judge?.user?.email)
+        .map((slot) =>
         sendGameNotificationEmail(
-          slot.judge.user.email,
+          slot.judge!.user.email,
           event.title,
           round.title || `Game ${roundNum}`,
           data.topic,

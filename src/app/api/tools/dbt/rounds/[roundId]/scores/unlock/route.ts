@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Round not found" }, { status: 404 });
 
     const isHeadJudge = round.judgeSlots.some(
-      (s) => s.judge.userId === user.id && s.judge.isHeadJudge,
+      (s) => s.judge?.userId === user.id && s.judge?.isHeadJudge,
     );
     const canControl = canManage(user.role) || isHeadJudge;
     if (!canControl) {

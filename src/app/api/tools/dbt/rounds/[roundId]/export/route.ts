@@ -107,7 +107,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       ];
 
       return {
-        judgeName: slot.judge.alias,
+        judgeName: slot.judge?.alias ?? slot.detachedAlias ?? "Unknown",
         judgePosition: slot.position,
         propositionTotal: proTotal,
         oppositionTotal: conTotal,

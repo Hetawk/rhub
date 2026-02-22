@@ -36,7 +36,14 @@ interface RoundData {
   roundNum: number;
   topic: string | null;
   completedAt: string | null;
-  judgeSlots: { id: string; position: number; judge: { id: string } }[];
+  judgeSlots: {
+    id: string;
+    position: number;
+    isRoundHead: boolean;
+    judgeId: string | null; // null = detached (scores preserved)
+    detachedAlias: string | null; // alias snapshot when judge was removed
+    judge: { id: string } | null;
+  }[];
 }
 
 interface Props {
@@ -87,6 +94,11 @@ export function JudgeManager({ eventId }: Props) {
     "search",
   );
 
+  // Round-view add-judge dropdown state
+  const [rvAddOpen, setRvAddOpen] = useState<string | null>(null); // roundId whose add-dropdown is open
+  const [rvAddJudgeId, setRvAddJudgeId] = useState(""); // judgeId selected in that dropdown
+  const [settingRoundHead, setSettingRoundHead] = useState<string | null>(null); // slotId being promoted
+
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -128,23 +140,60 @@ export function JudgeManager({ eventId }: Props) {
     setTogglingSlot({ judgeId, roundId });
     try {
       if (isInRound && slotId) {
-        await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+        const res = await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slotId }),
         });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          alert(d.error ?? "Failed to remove judge from round.");
+          return;
+        }
+        const d = await res.json().catch(() => ({}));
+        // If the server detached (scores preserved) rather than fully deleted, inform the user
+        if (d.detached && d.message) {
+          alert(`Score data preserved: ${d.message}`);
+        }
       } else if (!isInRound) {
-        await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+        const res = await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ judgeId }),
         });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          alert(d.error ?? "Failed to add judge to round.");
+          return;
+        }
       }
       await Promise.all([fetchJudges(), fetchRounds()]);
     } catch {
       alert("Network error — please try again.");
     } finally {
       setTogglingSlot(null);
+    }
+  };
+
+  /** Promote a slot to be the round's head judge (PATCH setRoundHead) */
+  const setRoundHead = async (slotId: string, roundId: string) => {
+    setSettingRoundHead(slotId);
+    try {
+      const res = await fetch(`/api/tools/dbt/rounds/${roundId}/slots`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setRoundHead: { slotId } }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error ?? "Failed to set round head judge.");
+      } else {
+        await fetchRounds();
+      }
+    } catch {
+      alert("Network error — please try again.");
+    } finally {
+      setSettingRoundHead(null);
     }
   };
 
@@ -350,14 +399,14 @@ export function JudgeManager({ eventId }: Props) {
     }
   };
 
-  // Open the reorder panel for a specific round, initialising the draft from current slot positions
+  // Open the reorder panel for a specific round, initialising the draft from current live slot positions
   const openReorder = (roundId: string) => {
     const round = rounds.find((r) => r.id === roundId);
     if (!round) return;
-    // Sort slots by current position; head judge always at front
-    const sorted = [...round.judgeSlots].sort(
-      (a, b) => a.position - b.position,
-    );
+    // Sort live slots only (judgeId != null) by current position
+    const sorted = [...round.judgeSlots]
+      .filter((s) => s.judgeId !== null)
+      .sort((a, b) => a.position - b.position);
     setReorderDraft(sorted.map((s) => s.id));
     setReorderRoundId(roundId);
     setReorderError(null);
@@ -367,12 +416,9 @@ export function JudgeManager({ eventId }: Props) {
     const next = [...reorderDraft];
     const target = index + dir;
     if (target < 0 || target >= next.length) return;
-    // Prevent moving the head judge away from position 0 (J1)
+    // Prevent moving the round head judge away from position 0 (J1)
     const round = rounds.find((r) => r.id === reorderRoundId);
-    const headSlotId = round?.judgeSlots.find((s) => {
-      const judge = judges.find((j) => j.slots.some((sl) => sl.id === s.id));
-      return judge?.isHeadJudge;
-    })?.id;
+    const headSlotId = round?.judgeSlots.find((s) => s.isRoundHead)?.id;
     if (headSlotId) {
       if (next[index] === headSlotId && dir === 1) return; // head can't move down
       if (next[target] === headSlotId && dir === -1) return; // can't displace head
@@ -677,7 +723,9 @@ export function JudgeManager({ eventId }: Props) {
       </div>
 
       {/* Reorder judges panel — shown when a round is selected */}
-      {openRounds.some((r) => r.judgeSlots.length > 1) && (
+      {openRounds.some(
+        (r) => r.judgeSlots.filter((s) => s.judgeId !== null).length > 1,
+      ) && (
         <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 overflow-hidden">
           <div className="px-5 py-3 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
             <div>
@@ -695,16 +743,19 @@ export function JudgeManager({ eventId }: Props) {
             {reorderRoundId === null ? (
               <div className="space-y-2">
                 {openRounds
-                  .filter((r) => r.judgeSlots.length > 1)
+                  .filter(
+                    (r) =>
+                      r.judgeSlots.filter((s) => s.judgeId !== null).length > 1,
+                  )
                   .map((r) => {
                     const label =
                       r.topic && r.topic.length > 0
                         ? `R${r.roundNum} — ${r.topic.length > 45 ? r.topic.substring(0, 45) + "…" : r.topic}`
                         : `Round ${r.roundNum}`;
-                    // Build current order display from round slots
-                    const orderedSlots = [...r.judgeSlots].sort(
-                      (a, b) => a.position - b.position,
-                    );
+                    // Build current order display from live slots only
+                    const orderedSlots = [...r.judgeSlots]
+                      .filter((s) => s.judgeId !== null)
+                      .sort((a, b) => a.position - b.position);
                     return (
                       <div
                         key={r.id}
@@ -724,12 +775,13 @@ export function JudgeManager({ eventId }: Props) {
                                   {i > 0 && " → "}
                                   <span
                                     className={
-                                      judge?.isHeadJudge
+                                      s.isRoundHead
                                         ? "text-amber-600 dark:text-amber-400 font-semibold"
                                         : ""
                                     }
                                   >
                                     J{s.position} {judge?.alias ?? "?"}
+                                    {s.isRoundHead ? " 👑" : ""}
                                   </span>
                                 </span>
                               );
@@ -777,7 +829,8 @@ export function JudgeManager({ eventId }: Props) {
                         const judge = judges.find((j) =>
                           j.slots.some((s) => s.id === slotId),
                         );
-                        const isHead = !!judge?.isHeadJudge;
+                        // Lock at J1 if this slot is the round head
+                        const isHead = !!slot?.isRoundHead;
                         const isFirst = index === 0;
                         const isLast = index === reorderDraft.length - 1;
 
@@ -806,11 +859,11 @@ export function JudgeManager({ eventId }: Props) {
                             {/* Judge info */}
                             <div className="flex-1 min-w-0">
                               <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block">
-                                {judge?.alias ?? slot?.judge?.id ?? slotId}
+                                {judge?.alias ?? "Unknown"}
                               </span>
                               {isHead && (
                                 <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                                  Head Judge · locked at J1
+                                  Round Head Judge · locked at J1
                                 </span>
                               )}
                             </div>
@@ -868,6 +921,312 @@ export function JudgeManager({ eventId }: Props) {
           </div>
         </div>
       )}
+
+      {/* ── Judges by Round ────────────────────────────────── */}
+      <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 overflow-hidden">
+        <div className="px-5 py-3 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
+              Judges by Round
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              View and manage which judges are assigned to each round.
+            </p>
+          </div>
+        </div>
+
+        {loadingRounds ? (
+          <div className="flex justify-center py-8">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          </div>
+        ) : rounds.length === 0 ? (
+          <p className="text-center text-slate-400 dark:text-slate-500 text-sm py-8">
+            No rounds yet. Create a round first.
+          </p>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {[...rounds]
+              .sort((a, b) => a.roundNum - b.roundNum)
+              .map((r) => {
+                const isCompleted = !!r.completedAt;
+                // Live slots: judges still assigned (judgeId != null)
+                const liveSlots = [...r.judgeSlots]
+                  .filter((s) => s.judgeId !== null)
+                  .sort((a, b) => a.position - b.position);
+                // Current round head slot
+                const roundHeadSlot = liveSlots.find((s) => s.isRoundHead);
+                // Judges not yet in this round (available to add)
+                const unassignedJudges = judges.filter(
+                  (j) =>
+                    !r.judgeSlots.some(
+                      (s) => s.judgeId && s.judge?.id === j.id,
+                    ),
+                );
+                const isAddOpen = rvAddOpen === r.id;
+
+                return (
+                  <div key={r.id} className="px-4 py-3">
+                    {/* Round header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono">
+                        R{r.roundNum}
+                      </span>
+                      {r.topic && r.topic.trim() && (
+                        <span className="text-xs text-slate-600 dark:text-slate-300 truncate flex-1 max-w-[260px]">
+                          {r.topic}
+                        </span>
+                      )}
+                      {isCompleted && (
+                        <span className="text-[9px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 rounded px-1.5 py-0.5">
+                          Completed
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Judge chips */}
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {liveSlots.length === 0 ? (
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+                          No judges assigned
+                        </span>
+                      ) : (
+                        liveSlots.map((slot) => {
+                          const judge = judges.find((j) =>
+                            j.slots.some((s) => s.id === slot.id),
+                          );
+                          const isToggling =
+                            togglingSlot?.judgeId === (judge?.id ?? "") &&
+                            togglingSlot?.roundId === r.id;
+                          return (
+                            <span
+                              key={slot.id}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border text-[11px] font-medium px-2.5 py-0.5 transition-colors",
+                                slot.isRoundHead
+                                  ? "border-amber-400 dark:border-amber-600 bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200"
+                                  : judge?.isHeadJudge
+                                    ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
+                                    : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
+                                isToggling && "opacity-50",
+                              )}
+                            >
+                              <span className="font-mono text-[9px] font-bold opacity-60">
+                                J{slot.position}
+                              </span>
+                              {judge?.alias ?? "?"}
+                              {slot.isRoundHead && (
+                                <span
+                                  title="Round Head Judge"
+                                  className="text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                >
+                                  👑
+                                </span>
+                              )}
+                              {!isCompleted && judge && (
+                                <button
+                                  disabled={isToggling}
+                                  onClick={() =>
+                                    toggleRoundSlot(
+                                      judge.id,
+                                      r.id,
+                                      true,
+                                      slot.id,
+                                    )
+                                  }
+                                  title="Remove from round"
+                                  className="ml-0.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 disabled:opacity-40 transition-colors leading-none"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* ── Head Judge Selector ────────────────────────── */}
+                    {/* Only meaningful when 2+ judges are in the round */}
+                    {!isCompleted && liveSlots.length > 1 && (
+                      <div className="mb-2 rounded-lg border border-slate-100 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-800/30 px-3 py-2">
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide shrink-0 mt-0.5">
+                            Round Head:
+                          </span>
+
+                          {roundHeadSlot ? (
+                            /* ── Head is set: show who it is + allow promoting others ── */
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Current head — non-interactive, prominent amber chip */}
+                              {(() => {
+                                const headJudge = judges.find((j) =>
+                                  j.slots.some(
+                                    (s) => s.id === roundHeadSlot.id,
+                                  ),
+                                );
+                                return (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-400 dark:border-amber-600 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-[10px] font-semibold px-2.5 py-0.5 select-none">
+                                    👑
+                                    <span className="font-mono text-[9px] opacity-70">
+                                      J1
+                                    </span>
+                                    {headJudge?.alias ?? "?"}
+                                  </span>
+                                );
+                              })()}
+
+                              {/* Separator */}
+                              <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none">
+                                ·
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 select-none">
+                                promote:
+                              </span>
+
+                              {/* Other judges — click to make them the round head */}
+                              {liveSlots
+                                .filter((s) => !s.isRoundHead)
+                                .map((slot) => {
+                                  const slotJudge = judges.find((j) =>
+                                    j.slots.some((s) => s.id === slot.id),
+                                  );
+                                  const isSetting =
+                                    settingRoundHead === slot.id;
+                                  return (
+                                    <button
+                                      key={slot.id}
+                                      disabled={!!settingRoundHead}
+                                      onClick={() =>
+                                        setRoundHead(slot.id, r.id)
+                                      }
+                                      title="Set as round head judge (will become J1)"
+                                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 text-[10px] font-medium px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:border-amber-300 dark:hover:border-amber-600 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-40 transition-colors cursor-pointer"
+                                    >
+                                      {isSetting ? (
+                                        <span className="animate-spin inline-block leading-none">
+                                          ⟳
+                                        </span>
+                                      ) : (
+                                        <span className="opacity-50">☆</span>
+                                      )}
+                                      <span className="font-mono text-[9px] opacity-60">
+                                        J{slot.position}
+                                      </span>
+                                      {slotJudge?.alias ?? "?"}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          ) : (
+                            /* ── No head set: show dashed chips to pick one ── */
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-amber-600 dark:text-amber-500 font-medium italic">
+                                None set —
+                              </span>
+                              {liveSlots.map((slot) => {
+                                const slotJudge = judges.find((j) =>
+                                  j.slots.some((s) => s.id === slot.id),
+                                );
+                                const isSetting = settingRoundHead === slot.id;
+                                return (
+                                  <button
+                                    key={slot.id}
+                                    disabled={!!settingRoundHead}
+                                    onClick={() => setRoundHead(slot.id, r.id)}
+                                    title="Set as round head judge"
+                                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-[10px] font-medium px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-40 transition-colors cursor-pointer"
+                                  >
+                                    {isSetting ? (
+                                      <span className="animate-spin inline-block leading-none">
+                                        ⟳
+                                      </span>
+                                    ) : (
+                                      <span className="opacity-50">☆</span>
+                                    )}
+                                    <span className="font-mono text-[9px] opacity-60">
+                                      J{slot.position}
+                                    </span>
+                                    {slotJudge?.alias ?? "?"}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add judge — only on open rounds */}
+                    {!isCompleted && (
+                      <div className="relative">
+                        {isAddOpen ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <select
+                              value={rvAddJudgeId}
+                              onChange={(e) => setRvAddJudgeId(e.target.value)}
+                              className="flex-1 min-w-0 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-[#C8A061]/40 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+                            >
+                              <option value="">— select a judge —</option>
+                              {unassignedJudges.map((j) => (
+                                <option key={j.id} value={j.id}>
+                                  {j.alias}
+                                  {j.isHeadJudge ? " (HEAD)" : ""}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              disabled={
+                                !rvAddJudgeId ||
+                                !!(
+                                  togglingSlot?.judgeId === rvAddJudgeId &&
+                                  togglingSlot?.roundId === r.id
+                                )
+                              }
+                              onClick={async () => {
+                                if (!rvAddJudgeId) return;
+                                await toggleRoundSlot(
+                                  rvAddJudgeId,
+                                  r.id,
+                                  false,
+                                );
+                                setRvAddOpen(null);
+                                setRvAddJudgeId("");
+                              }}
+                              className="text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors whitespace-nowrap"
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRvAddOpen(null);
+                                setRvAddJudgeId("");
+                              }}
+                              className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          unassignedJudges.length > 0 && (
+                            <button
+                              onClick={() => {
+                                setRvAddOpen(r.id);
+                                setRvAddJudgeId("");
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full px-2.5 py-0.5 font-medium transition-colors"
+                            >
+                              ＋ Add judge
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
 
       {/* Current judges list */}
       <div className="border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-900/50 overflow-hidden">
@@ -1011,7 +1370,7 @@ export function JudgeManager({ eventId }: Props) {
                       ) : (
                         openRounds.map((r) => {
                           const existingSlot = r.judgeSlots.find(
-                            (s) => s.judge.id === j.id,
+                            (s) => s.judge?.id === j.id && s.judgeId !== null,
                           );
                           const isInRound = !!existingSlot;
                           const isToggling =

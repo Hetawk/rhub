@@ -10,8 +10,13 @@ type Params = { params: Promise<{ roundId: string }> };
 /**
  * DELETE /api/tools/dbt/rounds/[roundId]
  * Permanently delete a round and all its scores/slots. Requires JUDGE_ADMIN+.
+ *
+ * Data-protection rule: blocked when any judge in the round has already
+ * submitted (non-draft) scores — deleting would destroy that scoring data.
+ * Pass force=true in the query string to override (JUDGE_ADMIN+ only, should
+ * be paired with a UI confirmation warning the user about data loss).
  */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
@@ -22,6 +27,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { roundId } = await params;
+    const force = req.nextUrl.searchParams.get("force") === "true";
 
     const round = await prisma.debateRound.findUnique({
       where: { id: roundId },
@@ -29,8 +35,28 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!round)
       return NextResponse.json({ error: "Round not found" }, { status: 404 });
 
-    // Cascade: Prisma schema has onDelete:Cascade on SpeechScore → JudgeSlot
-    // and on JudgeSlot → DebateRound, so deleting the round removes everything.
+    // ── Data-protection check ────────────────────────────────────────────
+    if (!force) {
+      const submittedScore = await prisma.speechScore.findFirst({
+        where: {
+          isDraft: false,
+          slot: { roundId },
+        },
+        select: { id: true },
+      });
+      if (submittedScore)
+        return NextResponse.json(
+          {
+            error:
+              "This round contains submitted scores. Deleting it will permanently destroy all scoring data. " +
+              "To confirm, resend this request with ?force=true.",
+            hasSubmittedScores: true,
+          },
+          { status: 409 },
+        );
+    }
+
+    // Cascade: JudgeSlot → SpeechScore → CriteriaScore all onDelete:Cascade.
     await prisma.debateRound.delete({ where: { id: roundId } });
 
     return NextResponse.json({ ok: true });
