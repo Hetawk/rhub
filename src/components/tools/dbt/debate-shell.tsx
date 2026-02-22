@@ -336,13 +336,22 @@ export function DebateShell({ eventSlug }: Props) {
     }
   };
 
-  // Export handler
+  // Export handler — exportRoundId: null = all rounds, or a specific round id
+  const [exportRoundId, setExportRoundId] = useState<string | "all">("all");
+
   const exportResults = (format: "json" | "csv") => {
-    if (!selectedRound) return;
-    window.open(
-      `/api/tools/dbt/rounds/${selectedRound.id}/export?format=${format}`,
-      "_blank",
-    );
+    if (!event) return;
+    if (exportRoundId === "all") {
+      window.open(
+        `/api/tools/dbt/events/${event.slug}/export?format=${format}`,
+        "_blank",
+      );
+    } else {
+      window.open(
+        `/api/tools/dbt/rounds/${exportRoundId}/export?format=${format}`,
+        "_blank",
+      );
+    }
   };
 
   // Add team handler
@@ -1412,11 +1421,38 @@ export function DebateShell({ eventSlug }: Props) {
           {tab === "export" && (
             <div className="space-y-4 max-w-xl mx-auto">
               {/* Data export */}
-              <div className="border rounded-xl bg-card shadow-sm p-5 space-y-3">
-                <h3 className="font-semibold text-foreground">Export Data</h3>
-                <p className="text-sm text-muted-foreground">
-                  Download raw scoring data for this round.
-                </p>
+              <div className="border rounded-xl bg-card shadow-sm p-5 space-y-4">
+                <h3 className="font-semibold text-foreground">
+                  Export Scoring Data
+                </h3>
+
+                {/* Round selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Select Round
+                  </label>
+                  <select
+                    value={exportRoundId}
+                    onChange={(e) => setExportRoundId(e.target.value)}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ekd-gold/40"
+                  >
+                    <option value="all">All Rounds (full event export)</option>
+                    {event?.rounds.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.title ?? `Round ${r.roundNum}`}
+                        {r.topic
+                          ? ` — ${r.topic.length > 50 ? r.topic.slice(0, 50) + "…" : r.topic}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    {exportRoundId === "all"
+                      ? `Exports all ${event?.rounds.length ?? 0} round(s) in one file.`
+                      : `Exports only the selected round.`}
+                  </p>
+                </div>
+
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={() => exportResults("csv")}

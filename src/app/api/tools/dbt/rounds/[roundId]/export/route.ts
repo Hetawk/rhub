@@ -186,34 +186,56 @@ export async function GET(req: NextRequest, { params }: Params) {
       );
       rows.push("");
 
-      // Build criteria columns from the first speech type
-      const firstSpeechType = SPEECH_TYPES[0]?.key as SpeechTypeKey;
-      const criteriaNames =
-        SPEECH_CRITERIA[firstSpeechType]?.map((c) => c.key) ?? [];
-      const criteriaLabels =
-        SPEECH_CRITERIA[firstSpeechType]?.map((c) => c.label) ?? [];
+      // Criteria reference table — shows what each criterion means per speech type
+      rows.push(
+        toCsvRow([
+          "CRITERIA REFERENCE",
+          "Speech Type",
+          "Crit 1",
+          "Crit 2",
+          "Crit 3",
+          "Crit 4",
+          "Crit 5",
+        ]),
+      );
+      for (const st of SPEECH_TYPES) {
+        const stCriteria = SPEECH_CRITERIA[st.key as SpeechTypeKey] ?? [];
+        rows.push(toCsvRow(["", st.key, ...stCriteria.map((c) => c.label)]));
+      }
+      rows.push("");
 
+      // Scores table — criteria columns are positional (Crit 1–5); meaning varies per speech type
       rows.push(
         toCsvRow([
           "Judge",
           "Position",
           "Side",
           "Speech Type",
-          ...criteriaLabels,
+          "Crit 1",
+          "Crit 2",
+          "Crit 3",
+          "Crit 4",
+          "Crit 5",
           "Total",
           "Locked At",
         ]),
       );
 
+      // Number of criteria per speech (all speech types have the same count)
+      const CRITERIA_COUNT = 5;
+
       for (const judge of judgeResults) {
         for (const score of judge.scores) {
+          // Look up the criteria keys for THIS specific speech type
+          const speechCriteria =
+            SPEECH_CRITERIA[score.speechType as SpeechTypeKey] ?? [];
           rows.push(
             toCsvRow([
               judge.judgeName,
               judge.judgePosition,
               score.side,
               score.speechType,
-              ...criteriaNames.map((c) => score.criteria[c] ?? ""),
+              ...speechCriteria.map((c) => score.criteria[c.key] ?? ""),
               score.total,
               score.lockedAt
                 ? new Date(score.lockedAt).toISOString()
@@ -227,7 +249,7 @@ export async function GET(req: NextRequest, { params }: Params) {
             judge.judgePosition,
             "PRO TOTAL",
             "",
-            ...criteriaNames.map(() => ""),
+            ...Array(CRITERIA_COUNT).fill(""),
             judge.propositionTotal,
             "",
           ]),
@@ -238,7 +260,7 @@ export async function GET(req: NextRequest, { params }: Params) {
             judge.judgePosition,
             "CON TOTAL",
             "",
-            ...criteriaNames.map(() => ""),
+            ...Array(CRITERIA_COUNT).fill(""),
             judge.oppositionTotal,
             "",
           ]),
